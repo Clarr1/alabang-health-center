@@ -11,6 +11,21 @@ class PatientInformation extends Model
 
     protected $primaryKey = 'patient_id';
 
+    protected $fillable = [
+        'qr_code',
+        'first_name',
+        'middle_name',
+        'last_name',
+        'birthdate',
+        'age',
+        'sex',
+        'address',
+        'contact_number',
+        'emergency_contact',
+        'registration_date',
+        'status',
+    ];
+
     public function vitalSigns(): HasMany
     {
         return $this->hasMany(VitalSign::class, 'patient_id', 'patient_id');
