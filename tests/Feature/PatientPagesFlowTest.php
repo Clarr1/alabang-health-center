@@ -2,6 +2,7 @@
 
 use App\Livewire\PatientInformationForm;
 use App\Livewire\VitalSignsForm;
+use App\Models\PatientInformation;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -37,6 +38,39 @@ it('saves patient information on one page and vital signs on the next page', fun
         ->set('respiratory_rate', 18)
         ->set('height', 160)
         ->set('weight', 55)
+        ->call('saveVitalSigns')
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('vital_signs', [
+        'patient_id' => $patient->patient_id,
+        'blood_pressure' => '120/80',
+        'recorded_by' => $user->user_id,
+    ]);
+});
+
+it('searches for a patient and associates vital signs with the selected patient', function () {
+    $user = User::factory()->create();
+    $patient = PatientInformation::create([
+        'qr_code' => 'QR-SEARCH-01',
+        'first_name' => 'Maria',
+        'middle_name' => 'Elena',
+        'last_name' => 'Santos',
+        'birthdate' => '1998-05-10',
+        'age' => 28,
+        'sex' => 'Female',
+        'address' => 'Sample Address 123',
+        'contact_number' => '09171234567',
+        'registration_date' => '2026-09-23',
+        'status' => 'Active',
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(VitalSignsForm::class)
+        ->set('patientSearch', 'Santos')
+        ->assertSee('Maria')
+        ->call('selectPatient', $patient->patient_id)
+        ->assertSet('patient_id', $patient->patient_id)
+        ->set('blood_pressure', '120/80')
         ->call('saveVitalSigns')
         ->assertHasNoErrors();
 

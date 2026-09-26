@@ -11,7 +11,7 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/patient-information-form', PatientInformationForm::class)->name('patient.information-form');
-    Route::get('/patient-vital-signs/{patient_id}', VitalSignsForm::class)->name('patient.vital-signs-form');
+    Route::get('/patient-vital-signs/{patient_id?}', VitalSignsForm::class)->name('patient.vital-signs-form');
 });
 
 Route::get('/dashboard', function () {

@@ -13,6 +13,7 @@ class VitalSignsForm extends Component
 {
     public $patient;
     public $patient_id;
+    public $patientSearch = '';
 
     public $blood_pressure = '';
     public $temperature = '';
@@ -23,16 +24,19 @@ class VitalSignsForm extends Component
     public $bmi = '';
     public $recorded_at = '';
 
-    public function mount($patient_id): void
+    public function mount($patient_id = null): void
     {
-        $this->patient_id = $patient_id;
-        $this->patient = PatientInformation::findOrFail($patient_id);
-        $this->recorded_at = now()->format('Y-m-d\TH:i');
+        if ($patient_id !== null) {
+            $this->selectPatient($patient_id);
+        }
+
+        $this->recorded_at = now()->toDateString();
     }
 
     public function rules(): array
     {
         return [
+            'patient_id' => ['required', 'integer', 'exists:patient_information,patient_id'],
             'blood_pressure' => ['nullable', 'string', 'max:20'],
             'temperature' => ['nullable', 'numeric', 'min:25', 'max:45'],
             'pulse_rate' => ['nullable', 'integer', 'min:0', 'max:220'],
@@ -52,6 +56,58 @@ class VitalSignsForm extends Component
     public function updatedWeight(): void
     {
         $this->calculateBmi();
+    }
+
+    public function getBmiCategoryProperty(): string
+    {
+        if ($this->bmi === '' || $this->bmi === null) {
+            return '---';
+        }
+
+        $bmi = (float) $this->bmi;
+
+        if ($bmi < 18.5) {
+            return 'Underweight';
+        }
+
+        if ($bmi < 25) {
+            return 'Normal';
+        }
+
+        if ($bmi < 30) {
+            return 'Overweight';
+        }
+
+        return 'Obese';
+    }
+
+    public function selectPatient(int $patientId): void
+    {
+        $this->patient = PatientInformation::findOrFail($patientId);
+        $this->patient_id = $this->patient->patient_id;
+        $this->patientSearch = '';
+    }
+
+    public function getPatientResultsProperty()
+    {
+        $search = trim($this->patientSearch);
+
+        if (mb_strlen($search) < 2) {
+            return collect();
+        }
+
+        return PatientInformation::query()
+            ->where(function ($query) use ($search) {
+                $query->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('middle_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('qr_code', 'like', "%{$search}%")
+                    ->orWhere('patient_id', 'like', "%{$search}%");
+            })
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->limit(8)
+            ->get();
     }
 
     public function saveVitalSigns(): void
@@ -102,6 +158,6 @@ class VitalSignsForm extends Component
         $this->height = '';
         $this->weight = '';
         $this->bmi = '';
-        $this->recorded_at = now()->format('Y-m-d\TH:i');
+        $this->recorded_at = now()->toDateString();
     }
 }
