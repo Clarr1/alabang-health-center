@@ -105,3 +105,20 @@
         </div>
     </form>
 </div>
+
+@if (session('patient_information_saved'))
+    @script
+        <script>
+            alert('Patient information saved successfully!');
+        </script>
+    @endscript
+@endif
+
+@script
+    <script>
+        $wire.on('vital-signs-saved', () => {
+            alert('Vital signs saved successfully!');
+            $wire.call('resetForm');
+        });
+    </script>
+@endscript

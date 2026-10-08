@@ -129,8 +129,7 @@ class VitalSignsForm extends Component
         ]);
 
         session()->flash('success', 'Vital signs saved successfully.');
-
-        $this->resetForm();
+        $this->dispatch('vital-signs-saved');
     }
 
     public function render()
@@ -149,15 +148,24 @@ class VitalSignsForm extends Component
         $this->bmi = '';
     }
 
-    private function resetForm(): void
+    public function resetForm(): void
     {
-        $this->blood_pressure = '';
-        $this->temperature = '';
-        $this->pulse_rate = '';
-        $this->respiratory_rate = '';
-        $this->height = '';
-        $this->weight = '';
-        $this->bmi = '';
+        $patientId = $this->patient_id;
+        $patient = $this->patient;
+
+        $this->reset([
+            'blood_pressure',
+            'temperature',
+            'pulse_rate',
+            'respiratory_rate',
+            'height',
+            'weight',
+            'bmi',
+            'patientSearch',
+        ]);
+
+        $this->patient_id = $patientId;
+        $this->patient = $patient;
         $this->recorded_at = now()->toDateString();
     }
 }

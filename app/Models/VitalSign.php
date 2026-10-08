@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class VitalSign extends Model
 {
@@ -24,6 +25,13 @@ class VitalSign extends Model
         'recorded_at',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'recorded_at' => 'datetime',
+        ];
+    }
+
     public function patient(): BelongsTo
     {
         return $this->belongsTo(
@@ -31,5 +39,15 @@ class VitalSign extends Model
             'patient_id',
             'patient_id'
         );
+    }
+
+    public function medicalRecords(): HasMany
+    {
+        return $this->hasMany(MedicalRecord::class, 'vital_signs_id', 'vital_id');
+    }
+
+    public function recordedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recorded_by', 'user_id');
     }
 }

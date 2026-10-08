@@ -67,8 +67,30 @@ class PatientInformationForm extends Component
         ]);
 
         session()->flash('success', 'Patient information saved successfully. You can now record vital signs.');
+        $this->dispatch(
+            'patient-information-saved',
+            redirectUrl: route('patient.vital-signs-form', ['patient_id' => $this->patient->patient_id]),
+        );
+    }
 
-        $this->redirect(route('patient.vital-signs-form', ['patient_id' => $this->patient->patient_id]), navigate: true);
+    public function resetForm(): void
+    {
+        $this->reset([
+            'qr_code',
+            'first_name',
+            'middle_name',
+            'last_name',
+            'birthdate',
+            'age',
+            'address',
+            'contact_number',
+            'emergency_contact',
+        ]);
+
+        $this->sex = 'Male';
+        $this->registration_date = now()->toDateString();
+        $this->status = 'Active';
+        $this->patient = null;
     }
 
     public function render()

@@ -97,3 +97,12 @@
         </div>
     </form>
 </div>
+
+@script
+    <script>
+        $wire.on('patient-information-saved', ({ redirectUrl }) => {
+            alert('Patient information saved successfully!');
+            $wire.call('resetForm').then(() => Livewire.navigate(redirectUrl));
+        });
+    </script>
+@endscript

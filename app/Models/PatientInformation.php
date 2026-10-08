@@ -30,4 +30,9 @@ class PatientInformation extends Model
     {
         return $this->hasMany(VitalSign::class, 'patient_id', 'patient_id');
     }
+
+    public function medicalRecords(): HasMany
+    {
+        return $this->hasMany(MedicalRecord::class, 'patient_id', 'patient_id');
+    }
 }

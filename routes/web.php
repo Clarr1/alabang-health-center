@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Livewire\PatientInformationForm;
+use App\Livewire\PatientTable;
 use App\Livewire\VitalSignsForm;
+use App\Livewire\MedicalRecordsForm;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -11,7 +13,9 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/patient-information-form', PatientInformationForm::class)->name('patient.information-form');
+    Route::get('/patients', PatientTable::class)->name('patients.index');
     Route::get('/patient-vital-signs/{patient_id?}', VitalSignsForm::class)->name('patient.vital-signs-form');
+    Route::get('/medical-records/{patient_id?}', MedicalRecordsForm::class)->name('medical-records.index');
 });
 
 Route::get('/dashboard', function () {
