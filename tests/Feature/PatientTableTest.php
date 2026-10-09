@@ -11,7 +11,6 @@ uses(RefreshDatabase::class);
 function createTablePatient(array $attributes = []): PatientInformation
 {
     return PatientInformation::create(array_merge([
-        'qr_code' => 'QR-'.uniqid(),
         'first_name' => 'Maria',
         'middle_name' => 'Elena',
         'last_name' => 'Santos',
@@ -33,9 +32,9 @@ it('searches, paginates, and views a selected patient', function () {
     Livewire::actingAs($user)
         ->test(PatientTable::class)
         ->assertSee('Santos')
-        ->set('page', 2)
+        ->call('setPage', 2)
         ->set('search', 'Maria')
-        ->assertSet('page', 1)
+        ->assertSet('paginators.page', 1)
         ->call('viewPatient', $patient->patient_id)
         ->assertSet('selectedPatientId', $patient->patient_id)
         ->assertSet('showPatientModal', true)

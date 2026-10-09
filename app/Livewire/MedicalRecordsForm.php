@@ -13,15 +13,25 @@ use Livewire\Component;
 class MedicalRecordsForm extends Component
 {
     public $patient;
+
     public $patient_id;
+
     public $patientSearch = '';
+
     public $vital_signs_id = '';
+
     public $diagnosis = '';
+
     public $prescription = '';
+
     public $treatment = '';
+
     public $consultation_notes = '';
+
     public $consultation_date = '';
+
     public $selectedMedicalRecordId = null;
+
     public $showMedicalRecordModal = false;
 
     public function mount(?int $patient_id = null): void
@@ -92,7 +102,6 @@ class MedicalRecordsForm extends Component
                 $query->where('first_name', 'like', "%{$search}%")
                     ->orWhere('middle_name', 'like', "%{$search}%")
                     ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('qr_code', 'like', "%{$search}%")
                     ->orWhere('patient_id', 'like', "%{$search}%")
                     ->orWhere('contact_number', 'like', "%{$search}%");
             })
@@ -136,6 +145,7 @@ class MedicalRecordsForm extends Component
 
         if (! $this->patient || ! $this->patient->vitalSigns()->whereKey($this->vital_signs_id)->exists()) {
             $this->addError('vital_signs_id', 'Select a vital signs record for this consultation.');
+
             return;
         }
 

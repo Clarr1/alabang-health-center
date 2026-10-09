@@ -13,7 +13,6 @@ uses(RefreshDatabase::class);
 it('searches for a patient, shows vital history, saves, and views a medical record', function () {
     $user = User::factory()->create();
     $patient = PatientInformation::create([
-        'qr_code' => 'QR-MEDICAL-01',
         'first_name' => 'Maria',
         'middle_name' => 'Elena',
         'last_name' => 'Santos',

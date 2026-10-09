@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class PatientInformationSeeder extends Seeder
 {
@@ -12,7 +11,6 @@ class PatientInformationSeeder extends Seeder
     {
         $patients = [
             [
-                'qr_code' => 'PAT-000001',
                 'first_name' => 'Juan',
                 'middle_name' => 'Santos',
                 'last_name' => 'Dela Cruz',
@@ -28,7 +26,6 @@ class PatientInformationSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'qr_code' => 'PAT-000002',
                 'first_name' => 'Maria',
                 'middle_name' => 'Garcia',
                 'last_name' => 'Santos',
@@ -44,7 +41,6 @@ class PatientInformationSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'qr_code' => 'PAT-000003',
                 'first_name' => 'Pedro',
                 'middle_name' => null,
                 'last_name' => 'Reyes',
@@ -60,7 +56,6 @@ class PatientInformationSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'qr_code' => 'PAT-000004',
                 'first_name' => 'Ana',
                 'middle_name' => 'Lopez',
                 'last_name' => 'Garcia',
@@ -76,7 +71,6 @@ class PatientInformationSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'qr_code' => 'PAT-000005',
                 'first_name' => 'Carlos',
                 'middle_name' => 'Mendoza',
                 'last_name' => 'Cruz',

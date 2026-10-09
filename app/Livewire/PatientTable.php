@@ -6,6 +6,7 @@ use App\Models\PatientInformation;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -15,8 +16,28 @@ class PatientTable extends Component
     use WithPagination;
 
     public $search = '';
+
     public $selectedPatientId = null;
+
     public $showPatientModal = false;
+
+    #[Locked]
+    public ?int $cardPatientId = null;
+
+    public bool $showCardModal = false;
+
+    public function generateIdCard(int $patientId): void
+    {
+        abort_unless(auth()->check(), 403);
+        PatientInformation::findOrFail($patientId);
+        $this->cardPatientId = $patientId;
+        $this->showCardModal = true;
+    }
+
+    public function closeCardModal(): void
+    {
+        $this->reset('cardPatientId', 'showCardModal');
+    }
 
     public function updatedSearch(): void
     {

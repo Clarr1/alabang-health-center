@@ -11,7 +11,6 @@ it('saves patient information on one page and vital signs on the next page', fun
 
     $patient = Livewire::actingAs($user)
         ->test(PatientInformationForm::class)
-        ->set('qr_code', 'QR-9001')
         ->set('first_name', 'Anna')
         ->set('middle_name', 'Marie')
         ->set('last_name', 'Dela Cruz')
@@ -27,8 +26,7 @@ it('saves patient information on one page and vital signs on the next page', fun
         ->assertHasNoErrors()
         ->instance()->patient;
 
-    expect($patient)->not->toBeNull()
-        ->and($patient->qr_code)->toBe('QR-9001');
+    expect($patient)->not->toBeNull();
 
     Livewire::actingAs($user)
         ->test(VitalSignsForm::class, ['patient_id' => $patient->patient_id])
@@ -51,7 +49,6 @@ it('saves patient information on one page and vital signs on the next page', fun
 it('searches for a patient and associates vital signs with the selected patient', function () {
     $user = User::factory()->create();
     $patient = PatientInformation::create([
-        'qr_code' => 'QR-SEARCH-01',
         'first_name' => 'Maria',
         'middle_name' => 'Elena',
         'last_name' => 'Santos',

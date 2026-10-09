@@ -38,7 +38,9 @@
                                 <td class="px-3 py-3 text-gray-700">{{ $patient->age ?? 'Not available' }}</td>
                                 <td class="px-3 py-3 text-gray-700">{{ $patient->contact_number ?: 'Not available' }}</td>
                                 <td class="px-3 py-3 text-gray-700">{{ $patient->status ?: 'Not available' }}</td>
-                                <td class="px-3 py-3"><button type="button" wire:click="viewPatient({{ $patient->patient_id }})" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500">View</button></td>
+                                <td class="px-3 py-3"><button type="button" wire:click="viewPatient({{ $patient->patient_id }})" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500">View</button>
+                                    <button type="button" wire:click="generateIdCard({{ $patient->patient_id }})" wire:loading.attr="disabled" wire:target="generateIdCard" class="mt-1 whitespace-nowrap rounded-md border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50">Generate ID Card</button>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -65,7 +67,6 @@
                         <div>
                             <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">Patient Information</h3>
                             <dl class="space-y-1 text-sm text-gray-700">
-                                <div><dt class="inline font-medium">QR code:</dt> <dd class="inline">{{ $this->selectedPatient->qr_code ?: 'Not available' }}</dd></div>
                                 <div><dt class="inline font-medium">Name:</dt> <dd class="inline">{{ trim(implode(' ', array_filter([$this->selectedPatient->first_name, $this->selectedPatient->middle_name, $this->selectedPatient->last_name]))) ?: 'Not available' }}</dd></div>
                                 <div><dt class="inline font-medium">Birthdate:</dt> <dd class="inline">{{ $this->selectedPatient->birthdate ?: 'Not available' }}</dd></div>
                                 <div><dt class="inline font-medium">Age:</dt> <dd class="inline">{{ $this->selectedPatient->age ?? 'Not available' }}</dd></div>
@@ -105,6 +106,24 @@
                     </div>
                 </div>
             </div>
+        </div>
+    @endif
+    @if ($showCardModal && $cardPatientId)
+        <div wire:key="patient-card-modal-{{ $cardPatientId }}" x-data="{ cardReady: false }" x-init="$nextTick(() => $refs.close.focus())" x-trap.inert.noscroll="true" x-on:keydown.escape.window="$wire.closeCardModal()" class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-gray-900/50 px-4 py-8" role="dialog" aria-modal="true" aria-labelledby="card-modal-title" wire:click.self="closeCardModal">
+            <section class="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+                <div class="mb-5 flex items-center justify-between gap-4">
+                    <h2 id="card-modal-title" class="text-lg font-semibold text-gray-900">Patient Identification Card</h2>
+                    <button x-ref="close" type="button" wire:click="closeCardModal" class="rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Close</button>
+                </div>
+                <div class="overflow-x-auto rounded-lg bg-gray-100 p-4">
+                    <iframe x-ref="card" x-on:load="cardReady = true" src="{{ route('patients.card.show', $cardPatientId) }}" title="Patient {{ $cardPatientId }} healthcare card preview" class="mx-auto block border-0 bg-white shadow" style="width: 85.60mm; height: 53.98mm;"></iframe>
+                </div>
+                <p class="mt-3 text-xs text-gray-500">Card size: 85.60 × 53.98 mm. Print at actual size (100%) with browser headers and footers disabled.</p>
+                <div class="mt-5 flex flex-wrap justify-end gap-3">
+                    <a href="{{ route('patients.card.download', $cardPatientId) }}" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500">Download PDF</a>
+                    <button type="button" x-bind:disabled="!cardReady" x-on:click="$refs.card.contentWindow.focus(); $refs.card.contentWindow.print()" class="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">Print</button>
+                </div>
+            </section>
         </div>
     @endif
 </div>

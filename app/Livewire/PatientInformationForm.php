@@ -11,17 +11,26 @@ class PatientInformationForm extends Component
 {
     public $patient;
 
-    public $qr_code = '';
     public $first_name = '';
+
     public $middle_name = '';
+
     public $last_name = '';
+
     public $birthdate = '';
+
     public $age = '';
+
     public $sex = 'Male';
+
     public $address = '';
+
     public $contact_number = '';
+
     public $emergency_contact = '';
+
     public $registration_date = '';
+
     public $status = 'Active';
 
     public function mount(): void
@@ -32,7 +41,6 @@ class PatientInformationForm extends Component
     public function rules(): array
     {
         return [
-            'qr_code' => ['required', 'string', 'max:255', 'unique:patient_information,qr_code'],
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
@@ -52,7 +60,6 @@ class PatientInformationForm extends Component
         $this->validate();
 
         $this->patient = PatientInformation::create([
-            'qr_code' => $this->qr_code,
             'first_name' => $this->first_name,
             'middle_name' => $this->middle_name,
             'last_name' => $this->last_name,
@@ -76,7 +83,6 @@ class PatientInformationForm extends Component
     public function resetForm(): void
     {
         $this->reset([
-            'qr_code',
             'first_name',
             'middle_name',
             'last_name',

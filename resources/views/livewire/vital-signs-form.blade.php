@@ -23,14 +23,14 @@
     <form wire:submit.prevent="saveVitalSigns" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div class="border-b border-gray-200 pb-6">
             <label for="patient-search" class="mb-1 block text-sm font-medium text-gray-700">Search Patient</label>
-            <input id="patient-search" type="search" wire:model.live.debounce.300ms="patientSearch" placeholder="Search by name, patient ID, or QR code" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+            <input id="patient-search" type="search" wire:model.live.debounce.300ms="patientSearch" placeholder="Search by name or patient ID" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
 
             @if ($patientSearch && $this->patientResults->isNotEmpty())
                 <div class="mt-2 overflow-hidden rounded-md border border-gray-200">
                     @foreach ($this->patientResults as $result)
                         <button type="button" wire:click="selectPatient({{ $result->patient_id }})" class="block w-full border-b border-gray-100 px-3 py-2 text-left last:border-b-0 hover:bg-gray-50">
                             <span class="block text-sm font-medium text-gray-900">{{ $result->last_name }}, {{ $result->first_name }} {{ $result->middle_name }}</span>
-                            <span class="block text-xs text-gray-500">Patient #{{ $result->patient_id }} · {{ $result->qr_code }}</span>
+                            <span class="block text-xs text-gray-500">Patient #{{ $result->patient_id }}</span>
                         </button>
                     @endforeach
                 </div>

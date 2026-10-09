@@ -27,10 +27,6 @@
             </div>
 
             <div class="grid gap-5 md:grid-cols-2">
-                <div>
-                    <label for="qr_code" class="mb-1 block text-sm font-medium text-gray-700">QR Code</label>
-                    <input id="qr_code" type="text" wire:model.defer="qr_code" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
-                </div>
 
                 <div>
                     <label for="registration_date" class="mb-1 block text-sm font-medium text-gray-700">Registration Date</label>

@@ -22,10 +22,6 @@
 
     <form wire:submit.prevent="savePatient" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div class="grid gap-5 md:grid-cols-2">
-            <div>
-                <label class="mb-1 block text-sm font-medium text-gray-700">QR Code</label>
-                <input type="text" wire:model.defer="qr_code" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
-            </div>
 
             <div>
                 <label class="mb-1 block text-sm font-medium text-gray-700">Registration Date</label>

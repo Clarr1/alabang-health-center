@@ -1,8 +1,9 @@
 <?php
 
 use App\Livewire\PatientVitalSignForm;
+use App\Models\PatientInformation;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Models\VitalSign;
 use Livewire\Livewire;
 
 it('stores patient information and vital signs from the livewire form', function () {
@@ -10,7 +11,6 @@ it('stores patient information and vital signs from the livewire form', function
 
     Livewire::actingAs($user)
         ->test(PatientVitalSignForm::class)
-        ->set('qr_code', 'QR-1001')
         ->set('first_name', 'Maria')
         ->set('middle_name', 'Del')
         ->set('last_name', 'Santos')
@@ -31,9 +31,9 @@ it('stores patient information and vital signs from the livewire form', function
         ->call('save')
         ->assertHasNoErrors();
 
-    $patient = \App\Models\PatientInformation::where('qr_code', 'QR-1001')->first();
+    $patient = PatientInformation::where('first_name', 'Maria')->first();
     expect($patient)->not->toBeNull()
         ->and($patient->first_name)->toBe('Maria')
-        ->and(\App\Models\VitalSign::where('patient_id', $patient->patient_id)->count())->toBe(1)
-        ->and(\App\Models\VitalSign::where('patient_id', $patient->patient_id)->first()->recorded_by)->toBe($user->user_id);
+        ->and(VitalSign::where('patient_id', $patient->patient_id)->count())->toBe(1)
+        ->and(VitalSign::where('patient_id', $patient->patient_id)->first()->recorded_by)->toBe($user->user_id);
 });

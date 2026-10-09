@@ -12,7 +12,6 @@ class PatientInformation extends Model
     protected $primaryKey = 'patient_id';
 
     protected $fillable = [
-        'qr_code',
         'first_name',
         'middle_name',
         'last_name',

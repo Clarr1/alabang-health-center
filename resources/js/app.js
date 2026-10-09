@@ -1,7 +1,9 @@
-
-
-import Alpine from 'alpinejs';
+import { Livewire, Alpine } from '../../vendor/livewire/livewire/dist/livewire.esm';
 
 window.Alpine = Alpine;
 
-Alpine.start();
+if (window.livewireScriptConfig) {
+    Livewire.start();
+} else {
+    Alpine.start();
+}

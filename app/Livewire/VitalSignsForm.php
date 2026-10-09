@@ -12,16 +12,25 @@ use Livewire\Component;
 class VitalSignsForm extends Component
 {
     public $patient;
+
     public $patient_id;
+
     public $patientSearch = '';
 
     public $blood_pressure = '';
+
     public $temperature = '';
+
     public $pulse_rate = '';
+
     public $respiratory_rate = '';
+
     public $height = '';
+
     public $weight = '';
+
     public $bmi = '';
+
     public $recorded_at = '';
 
     public function mount($patient_id = null): void
@@ -101,7 +110,6 @@ class VitalSignsForm extends Component
                 $query->where('first_name', 'like', "%{$search}%")
                     ->orWhere('middle_name', 'like', "%{$search}%")
                     ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('qr_code', 'like', "%{$search}%")
                     ->orWhere('patient_id', 'like', "%{$search}%");
             })
             ->orderBy('last_name')
@@ -142,6 +150,7 @@ class VitalSignsForm extends Component
         if ($this->height !== '' && $this->weight !== '' && (float) $this->height > 0) {
             $heightInMeters = (float) $this->height / 100;
             $this->bmi = round((float) $this->weight / ($heightInMeters * $heightInMeters), 1);
+
             return;
         }
 
