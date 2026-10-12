@@ -3,6 +3,10 @@
 namespace App\Livewire;
 
 use App\Models\PatientInformation;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -35,7 +39,7 @@ class PatientInformationForm extends Component
 
     public function mount(): void
     {
-        $this->registration_date = now()->toDateString();
+        $this->registration_date = now('Asia/Manila')->toDateString();
     }
 
     public function rules(): array
@@ -57,26 +61,38 @@ class PatientInformationForm extends Component
 
     public function savePatient(): void
     {
+        Gate::authorize('queue-register');
         $this->validate();
 
-        $this->patient = PatientInformation::create([
-            'first_name' => $this->first_name,
-            'middle_name' => $this->middle_name,
-            'last_name' => $this->last_name,
-            'birthdate' => $this->birthdate,
-            'age' => (int) $this->age,
-            'sex' => $this->sex,
-            'address' => $this->address,
-            'contact_number' => $this->contact_number,
-            'emergency_contact' => $this->emergency_contact,
-            'registration_date' => $this->registration_date,
-            'status' => $this->status,
-        ]);
+        try {
+            DB::transaction(function (): void {
+                $this->patient = PatientInformation::create([
+                    'first_name' => $this->first_name,
+                    'middle_name' => $this->middle_name,
+                    'last_name' => $this->last_name,
+                    'birthdate' => $this->birthdate,
+                    'age' => (int) $this->age,
+                    'sex' => $this->sex,
+                    'address' => $this->address,
+                    'contact_number' => $this->contact_number,
+                    'emergency_contact' => $this->emergency_contact,
+                    'registration_date' => $this->registration_date,
+                    'status' => $this->status,
+                ]);
 
-        session()->flash('success', 'Patient information saved successfully. You can now record vital signs.');
+            }, 5);
+        } catch (QueryException $exception) {
+            report($exception);
+            $this->patient = null;
+            $this->addError('queue', 'Unable to register this visit. Please try again.');
+
+            return;
+        }
+
+        session()->flash('success', 'Patient registered successfully. Select an assigned queue number to add this visit.');
         $this->dispatch(
             'patient-information-saved',
-            redirectUrl: route('patient.vital-signs-form', ['patient_id' => $this->patient->patient_id]),
+            redirectUrl: route('queues.index', ['patient' => $this->patient->patient_id]),
         );
     }
 
@@ -94,12 +110,12 @@ class PatientInformationForm extends Component
         ]);
 
         $this->sex = 'Male';
-        $this->registration_date = now()->toDateString();
+        $this->registration_date = now('Asia/Manila')->toDateString();
         $this->status = 'Active';
         $this->patient = null;
     }
 
-    public function render()
+    public function render(): View
     {
         return view('livewire.patient-information-form');
     }

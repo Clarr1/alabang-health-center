@@ -20,7 +20,7 @@
         </div>
     @endif
 
-    <form wire:submit.prevent="savePatient" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+    <form wire:submit.prevent="savePatient" wire:confirm="Save this patient information?" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div class="grid gap-5 md:grid-cols-2">
 
             <div>
@@ -97,7 +97,7 @@
 @script
     <script>
         $wire.on('patient-information-saved', ({ redirectUrl }) => {
-            alert('Patient information saved successfully!');
+            alert('Patient registered successfully. Assign their queue number on the next page.');
             $wire.call('resetForm').then(() => Livewire.navigate(redirectUrl));
         });
     </script>

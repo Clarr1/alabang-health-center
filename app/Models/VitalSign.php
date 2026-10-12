@@ -14,6 +14,7 @@ class VitalSign extends Model
 
     protected $fillable = [
         'patient_id',
+        'queue_id',
         'recorded_by',
         'blood_pressure',
         'temperature',
@@ -30,6 +31,11 @@ class VitalSign extends Model
         return [
             'recorded_at' => 'datetime',
         ];
+    }
+
+    public function queue(): BelongsTo
+    {
+        return $this->belongsTo(Queue::class, 'queue_id', 'queue_id');
     }
 
     public function patient(): BelongsTo

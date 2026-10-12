@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PatientInformation extends Model
 {
+    use HasFactory;
+
     protected $table = 'patient_information';
 
     protected $primaryKey = 'patient_id';
@@ -24,6 +27,11 @@ class PatientInformation extends Model
         'registration_date',
         'status',
     ];
+
+    public function queues(): HasMany
+    {
+        return $this->hasMany(Queue::class, 'patient_id', 'patient_id');
+    }
 
     public function vitalSigns(): HasMany
     {

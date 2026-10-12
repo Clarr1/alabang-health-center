@@ -3,7 +3,9 @@
 use App\Livewire\PatientInformationForm;
 use App\Livewire\VitalSignsForm;
 use App\Models\PatientInformation;
+use App\Models\Queue;
 use App\Models\User;
+use App\Services\QueueWorkflow;
 use Livewire\Livewire;
 
 it('saves patient information on one page and vital signs on the next page', function () {
@@ -27,6 +29,10 @@ it('saves patient information on one page and vital signs on the next page', fun
         ->instance()->patient;
 
     expect($patient)->not->toBeNull();
+    expect(Queue::count())->toBe(0);
+    $queue = app(QueueWorkflow::class)->addPatient($patient->patient_id, 19);
+    app(QueueWorkflow::class)->transition($queue->queue_id, 'Waiting', 'Called');
+    app(QueueWorkflow::class)->transition($queue->queue_id, 'Called', 'Vital Signs');
 
     Livewire::actingAs($user)
         ->test(VitalSignsForm::class, ['patient_id' => $patient->patient_id])

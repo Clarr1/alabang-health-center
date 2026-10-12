@@ -15,6 +15,7 @@ class MedicalRecord extends Model
 
     protected $fillable = [
         'patient_id',
+        'queue_id',
         'vital_signs_id',
         'handled_by',
         'diagnosis',
@@ -31,6 +32,11 @@ class MedicalRecord extends Model
             'consultation_date' => 'date',
             'created_at' => 'datetime',
         ];
+    }
+
+    public function queue(): BelongsTo
+    {
+        return $this->belongsTo(Queue::class, 'queue_id', 'queue_id');
     }
 
     public function patient(): BelongsTo

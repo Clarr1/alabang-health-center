@@ -15,6 +15,9 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
+                    @can('queue-view')
+                        <x-nav-link :href="route('queues.index')" :active="request()->routeIs('queues.*')">Queue Management</x-nav-link>
+                    @endcan
                     <x-nav-link :href="route('patients.index')" :active="request()->routeIs('patients.*')">
                         {{ __('Patients') }}
                     </x-nav-link>
@@ -76,6 +79,9 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+            @can('queue-view')
+                <x-responsive-nav-link :href="route('queues.index')" :active="request()->routeIs('queues.*')">Queue Management</x-responsive-nav-link>
+            @endcan
             <x-responsive-nav-link :href="route('patients.index')" :active="request()->routeIs('patients.*')">
                 {{ __('Patients') }}
             </x-responsive-nav-link>

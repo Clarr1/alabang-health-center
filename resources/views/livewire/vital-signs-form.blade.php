@@ -1,4 +1,7 @@
 <div class="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+    @if ($queueId)
+        <div class="mb-6 rounded-md bg-blue-50 p-4 text-sm text-blue-700">Recording vital signs for this queue visit. Saving will mark the patient Ready for Consultation. <a href="{{ route('queues.index') }}" wire:navigate class="font-semibold underline">Back to Queue</a></div>
+    @endif
     <div class="mb-8">
         <h1 class="text-2xl font-bold text-gray-900">Vital Signs</h1>
         <p class="mt-2 text-sm text-gray-600">Record the vital signs for patient #{{ $patient_id }}.</p>
@@ -20,7 +23,7 @@
         </div>
     @endif
 
-    <form wire:submit.prevent="saveVitalSigns" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+    <form wire:submit.prevent="saveVitalSigns" wire:confirm="Save these vital signs?" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div class="border-b border-gray-200 pb-6">
             <label for="patient-search" class="mb-1 block text-sm font-medium text-gray-700">Search Patient</label>
             <input id="patient-search" type="search" wire:model.live.debounce.300ms="patientSearch" placeholder="Search by name or patient ID" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">

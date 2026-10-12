@@ -39,6 +39,9 @@
                                 <td class="px-3 py-3 text-gray-700">{{ $patient->contact_number ?: 'Not available' }}</td>
                                 <td class="px-3 py-3 text-gray-700">{{ $patient->status ?: 'Not available' }}</td>
                                 <td class="px-3 py-3"><button type="button" wire:click="viewPatient({{ $patient->patient_id }})" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500">View</button>
+                                    @can('queue-register')
+                                        <a href="{{ route('queues.index', ['patient' => $patient->patient_id]) }}" wire:navigate class="mt-1 inline-block whitespace-nowrap rounded-md border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-700">Add to Queue</a>
+                                    @endcan
                                     <button type="button" wire:click="generateIdCard({{ $patient->patient_id }})" wire:loading.attr="disabled" wire:target="generateIdCard" class="mt-1 whitespace-nowrap rounded-md border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50">Generate ID Card</button>
                                 </td>
                             </tr>
@@ -90,7 +93,7 @@
                     <div class="mt-6 border-t border-gray-200 pt-5">
                         <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Recent Vital Signs</h3>
                         @forelse ($this->selectedPatient->vitalSigns->sortByDesc('recorded_at')->take(3) as $vitalSign)
-                            <div class="border-b border-gray-100 py-2 text-sm text-gray-700 last:border-b-0"><span class="font-medium">{{ $vitalSign->recorded_at?->format('M j, Y g:i A') ?: 'Not available' }}</span> · BP {{ $vitalSign->blood_pressure ?: 'Not available' }} · Temp {{ $vitalSign->temperature ?: 'Not available' }} · Recorded by {{ $vitalSign->recordedBy?->name ?: 'Not available' }}</div>
+                            <div class="border-b border-gray-100 py-2 text-sm text-gray-700 last:border-b-0"><span class="font-medium">{{ $vitalSign->recorded_at?->timezone('Asia/Manila')->format('M j, Y g:i A') ?: 'Not available' }}</span> · BP {{ $vitalSign->blood_pressure ?: 'Not available' }} · Temp {{ $vitalSign->temperature ?: 'Not available' }} · Recorded by {{ $vitalSign->recordedBy?->name ?: 'Not available' }}</div>
                         @empty
                             <p class="text-sm text-gray-500">No vital signs recorded.</p>
                         @endforelse

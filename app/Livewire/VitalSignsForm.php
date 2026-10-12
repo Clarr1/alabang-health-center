@@ -3,14 +3,23 @@
 namespace App\Livewire;
 
 use App\Models\PatientInformation;
+use App\Models\Queue;
 use App\Models\VitalSign;
+use App\Services\QueueWorkflow;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
 class VitalSignsForm extends Component
 {
+    #[Locked]
+    public ?int $queueId = null;
+
     public $patient;
 
     public $patient_id;
@@ -33,13 +42,21 @@ class VitalSignsForm extends Component
 
     public $recorded_at = '';
 
-    public function mount($patient_id = null): void
+    public function mount(?int $patient_id = null, ?int $queue_id = null): void
     {
         if ($patient_id !== null) {
             $this->selectPatient($patient_id);
         }
 
-        $this->recorded_at = now()->toDateString();
+        $this->recorded_at = now('Asia/Manila')->toDateString();
+
+        if ($queue_id !== null) {
+            Gate::authorize('queue-register');
+            $queue = Queue::findOrFail($queue_id);
+            abort_unless((int) $queue->patient_id === (int) $this->patient_id, 404);
+            abort_unless($queue->status === 'Vital Signs', 409);
+            $this->queueId = $queue_id;
+        }
     }
 
     public function rules(): array
@@ -92,6 +109,11 @@ class VitalSignsForm extends Component
 
     public function selectPatient(int $patientId): void
     {
+        if ($this->queueId !== null) {
+            $queue = Queue::findOrFail($this->queueId);
+            abort_unless((int) $queue->patient_id === $patientId, 403);
+        }
+
         $this->patient = PatientInformation::findOrFail($patientId);
         $this->patient_id = $this->patient->patient_id;
         $this->patientSearch = '';
@@ -120,10 +142,25 @@ class VitalSignsForm extends Component
 
     public function saveVitalSigns(): void
     {
+        Gate::authorize('queue-register');
         $this->validate();
+        $activeQueue = Queue::where('patient_id', $this->patient_id)
+            ->whereDate('queue_date', now('Asia/Manila')->toDateString())
+            ->whereNotIn('status', Queue::TERMINAL_STATUSES)->first();
+
+        if ($this->queueId === null && $activeQueue !== null) {
+            $this->queueId = $activeQueue->queue_id;
+        }
+        if (! $this->patient || (int) $this->patient->patient_id !== (int) $this->patient_id) {
+            $this->addError('patient_id', 'Select the patient for this vital signs record.');
+
+            return;
+        }
+
         $this->calculateBmi();
 
-        VitalSign::create([
+        $save = fn (?Queue $queue = null): VitalSign => VitalSign::create([
+            'queue_id' => $queue?->queue_id,
             'patient_id' => $this->patient_id,
             'recorded_by' => Auth::id(),
             'blood_pressure' => $this->blood_pressure ?: null,
@@ -133,14 +170,36 @@ class VitalSignsForm extends Component
             'height' => $this->height !== '' ? $this->height : null,
             'weight' => $this->weight !== '' ? $this->weight : null,
             'bmi' => $this->bmi !== '' ? $this->bmi : null,
-            'recorded_at' => $this->recorded_at ?: now(),
+            'recorded_at' => $queue !== null ? now() : ($this->recorded_at ?: now()),
         ]);
 
-        session()->flash('success', 'Vital signs saved successfully.');
+        try {
+            if ($this->queueId !== null) {
+                app(QueueWorkflow::class)->saveVitalSigns(
+                    $this->queueId,
+                    (int) $this->patient_id,
+                    $save,
+                );
+            } else {
+                $save();
+            }
+        } catch (QueryException $exception) {
+            report($exception);
+            $this->addError('queue', 'Unable to save this visit. Check the current queue status and try again.');
+
+            return;
+        }
+
+        session()->flash('success', $this->queueId !== null ? 'Vital signs saved successfully. The visit is now ready for consultation.' : 'Vital signs saved successfully.');
+        if ($this->queueId !== null) {
+            $this->redirect(route('queues.index'), navigate: true);
+
+            return;
+        }
         $this->dispatch('vital-signs-saved');
     }
 
-    public function render()
+    public function render(): View
     {
         return view('livewire.vital-signs-form');
     }
@@ -175,6 +234,14 @@ class VitalSignsForm extends Component
 
         $this->patient_id = $patientId;
         $this->patient = $patient;
-        $this->recorded_at = now()->toDateString();
+        $this->recorded_at = now('Asia/Manila')->toDateString();
+
+        if ($queue_id !== null) {
+            Gate::authorize('queue-register');
+            $queue = Queue::findOrFail($queue_id);
+            abort_unless((int) $queue->patient_id === (int) $this->patient_id, 404);
+            abort_unless($queue->status === 'Vital Signs', 409);
+            $this->queueId = $queue_id;
+        }
     }
 }

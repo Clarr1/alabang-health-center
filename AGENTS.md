@@ -86,7 +86,7 @@ Before relying on a package's API, confirm its installed version:
 - Pure copy, styling, and layout-only changes do not require new or updated tests.
 - When test coverage applies, run the affected tests and ensure they pass.
 - Test the changed behavior and its important failure modes, but do not add tests beyond them.
-- Read the `testing-best-practices` skill before writing tests.
+- Before writing tests, read the `testing-best-practices` skill if available. If it is missing, follow the project's existing Pest testing conventions and continue without requesting confirmation.
 
 === laravel/core rules ===
 

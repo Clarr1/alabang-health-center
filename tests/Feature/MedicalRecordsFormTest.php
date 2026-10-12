@@ -11,7 +11,7 @@ use Livewire\Livewire;
 uses(RefreshDatabase::class);
 
 it('searches for a patient, shows vital history, saves, and views a medical record', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['role' => 'Doctor']);
     $patient = PatientInformation::create([
         'first_name' => 'Maria',
         'middle_name' => 'Elena',

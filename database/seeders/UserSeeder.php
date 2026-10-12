@@ -14,7 +14,6 @@ class UserSeeder extends Seeder
             'name' => 'Admin',
             'email' => 'admin@gmail.com',
             'password' => Hash::make('admin'),
-        ]);
+        ])->forceFill(['role' => 'Admin'])->save();
     }
 }
-

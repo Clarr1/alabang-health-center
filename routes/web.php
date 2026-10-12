@@ -5,6 +5,8 @@ use App\Http\Controllers\ProfileController;
 use App\Livewire\MedicalRecordsForm;
 use App\Livewire\PatientInformationForm;
 use App\Livewire\PatientTable;
+use App\Livewire\QueueDisplay;
+use App\Livewire\QueueManagement;
 use App\Livewire\VitalSignsForm;
 use Illuminate\Support\Facades\Route;
 
@@ -13,6 +15,10 @@ Route::get('/', function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/queues', QueueManagement::class)->middleware('can:queue-view')->name('queues.index');
+    Route::get('/queues/display', QueueDisplay::class)->middleware('can:queue-view')->name('queues.display');
+    Route::get('/queues/{queue_id}/vital-signs/{patient_id}', VitalSignsForm::class)->middleware('can:queue-register')->name('queues.vital-signs');
+    Route::get('/queues/{queue_id}/consultation/{patient_id}', MedicalRecordsForm::class)->middleware('can:queue-consult')->name('queues.consultation');
     Route::get('/patient-information-form', PatientInformationForm::class)->name('patient.information-form');
     Route::get('/patients', PatientTable::class)->name('patients.index');
     Route::get('/patients/{patient}/card', [PatientCardController::class, 'show'])->name('patients.card.show');
