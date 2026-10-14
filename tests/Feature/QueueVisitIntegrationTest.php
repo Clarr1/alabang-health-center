@@ -37,12 +37,12 @@ it('runs registration through vital signs consultation and completed medical rec
     $vitals = Livewire::actingAs($staff)->test(VitalSignsForm::class, [
         'patient_id' => $queue->patient_id, 'queue_id' => $queue->queue_id,
     ])->set('blood_pressure', '120/80')->set('height', 160)->set('weight', 55)
-        ->call('saveVitalSigns')->assertHasNoErrors()->assertRedirect(route('queues.index'));
+        ->call('saveVitalSigns')->assertHasNoErrors()->assertSet('queueId', null)->assertSet('patient_id', null)->assertDispatched('vital-signs-saved');
     expect($queue->fresh()->status)->toBe('Ready for Consultation')
         ->and($queue->fresh()->queue_number)->toBe(42)
         ->and($queue->vitalSign->bmi)->toEqual(21.5)
         ->and($queue->vitalSign->patient->patient_id)->toBe($queue->patient_id);
-    $vitals->call('saveVitalSigns')->assertHasErrors('queue');
+    $vitals->call('saveVitalSigns')->assertHasErrors('patient_id');
     expect(VitalSign::count())->toBe(1);
 
     $this->actingAs($doctor);
@@ -130,8 +130,7 @@ it('does not complete consultation when its medical record transaction fails', f
 it('prevents staff from saving consultation records and doctors from saving vital signs', function () {
     Livewire::actingAs(User::factory()->create())->test(MedicalRecordsForm::class)
         ->call('saveMedicalRecord')->assertForbidden();
-    Livewire::actingAs(User::factory()->create(['role' => 'Doctor']))->test(VitalSignsForm::class)
-        ->call('saveVitalSigns')->assertForbidden();
+    Livewire::actingAs(User::factory()->create(['role' => 'Doctor']))->test(VitalSignsForm::class)->assertForbidden();
 });
 
 it('detects active queues on the original form routes and prevents skipping workflow steps', function () {
@@ -139,4 +138,69 @@ it('detects active queues on the original form routes and prevents skipping work
     Livewire::actingAs(User::factory()->create())->test(VitalSignsForm::class, ['patient_id' => $queue->patient_id])
         ->call('saveVitalSigns')->assertHasErrors('queue');
     expect(VitalSign::count())->toBe(0)->and($queue->fresh()->status)->toBe('Waiting');
+});
+
+it('shows only todays vital signs queue in numeric order and refreshes new arrivals', function () {
+    $first = Queue::factory()->create(['queue_number' => 2]);
+    $last = Queue::factory()->create(['queue_number' => 100, 'status' => 'Called']);
+    Queue::factory()->create(['queue_number' => 1, 'status' => 'Ready for Consultation']);
+    DB::table('queue_days')->insert(['queue_date' => now('Asia/Manila')->subDay()->toDateString(), 'last_number' => 0]);
+    Queue::factory()->create(['queue_date' => now('Asia/Manila')->subDay()->toDateString()]);
+    $component = Livewire::actingAs(User::factory()->create())->test(VitalSignsForm::class)
+        ->assertSee('wire:poll.5s', false);
+    expect($component->get('vitalSignsQueue')->pluck('queue_id')->all())->toBe([$first->queue_id, $last->queue_id]);
+    $arrival = Queue::factory()->create(['queue_number' => 10, 'status' => 'Vital Signs']);
+    $component->call('$refresh');
+    expect($component->get('vitalSignsQueue')->pluck('queue_id')->all())->toBe([$first->queue_id, $arrival->queue_id, $last->queue_id]);
+});
+
+it('selects a queue patient and sends the same visit to the doctors queue after saving', function (string $status) {
+    $queue = Queue::factory()->create(['queue_number' => 42, 'status' => $status]);
+    $staff = User::factory()->create();
+    $component = Livewire::actingAs($staff)->test(VitalSignsForm::class)
+        ->call('selectQueue', $queue->queue_id, $status)->assertHasNoErrors()
+        ->assertSet('patient_id', $queue->patient_id)->assertSet('queueId', $queue->queue_id)
+        ->assertSee($queue->patient->first_name)->assertSee('Save Vital Signs and Send to Consultation')
+        ->set('height', 160)->set('weight', 55)->set('temperature', 99)
+        ->call('saveVitalSigns')->assertHasErrors('temperature');
+    expect($queue->fresh()->status)->toBe('Vital Signs')->and(VitalSign::count())->toBe(0);
+    $component->set('temperature', 36.5)->set('blood_pressure', '120/80')
+        ->call('saveVitalSigns')->assertHasNoErrors()->assertNoRedirect()
+        ->assertSet('patient_id', null)->assertSet('patient', null)->assertSet('queueId', null)
+        ->assertSet('height', '')->assertSet('weight', '')->assertSet('bmi', '')
+        ->assertSee('ready for consultation');
+    expect($queue->fresh()->status)->toBe('Ready for Consultation')
+        ->and($queue->fresh()->queue_number)->toBe(42)->and(Queue::count())->toBe(1)
+        ->and($queue->vitalSign->patient_id)->toBe($queue->patient_id)
+        ->and($queue->vitalSign->recorded_by)->toBe($staff->user_id)
+        ->and($queue->vitalSign->bmi)->toEqual(21.5);
+    $component->call('saveVitalSigns')->assertHasErrors('patient_id');
+    expect(VitalSign::count())->toBe(1)->and($component->get('vitalSignsQueue'))->toHaveCount(0);
+    Livewire::actingAs(User::factory()->create(['role' => 'Doctor']))->test(QueueManagement::class)
+        ->set('status', 'Ready for Consultation')->assertSee($queue->patient->first_name)
+        ->assertSee('Start Consultation');
+})->with(['Waiting', 'Called', 'Vital Signs']);
+
+it('rejects stale ineligible and previous day queue selections without changing the form', function () {
+    $queue = Queue::factory()->create(['status' => 'Called']);
+    $component = Livewire::actingAs(User::factory()->create())->test(VitalSignsForm::class)
+        ->call('selectQueue', $queue->queue_id, 'Waiting')->assertHasErrors('queue')->assertSet('queueId', null);
+    expect($queue->fresh()->status)->toBe('Called');
+    $queue->update(['status' => 'Ready for Consultation']);
+    $component->call('selectQueue', $queue->queue_id, 'Ready for Consultation')->assertHasErrors('queue');
+    DB::table('queue_days')->insert(['queue_date' => now('Asia/Manila')->subDay()->toDateString(), 'last_number' => 0]);
+    $queue->update(['status' => 'Waiting', 'queue_date' => now('Asia/Manila')->subDay()->toDateString()]);
+    $component->call('selectQueue', $queue->queue_id, 'Waiting')->assertHasErrors('queue')->assertSet('patient', null);
+    expect($queue->fresh()->status)->toBe('Waiting')->and(VitalSign::count())->toBe(0);
+});
+
+it('rejects duplicate saves from another staff form for the same visit', function () {
+    $queue = Queue::factory()->create(['status' => 'Vital Signs']);
+    $staff = User::factory()->create();
+    $first = Livewire::actingAs($staff)->test(VitalSignsForm::class)->call('selectQueue', $queue->queue_id, 'Vital Signs');
+    $second = Livewire::actingAs($staff)->test(VitalSignsForm::class)->call('selectQueue', $queue->queue_id, 'Vital Signs');
+    $first->call('saveVitalSigns')->assertHasNoErrors();
+    $second->call('saveVitalSigns')->assertHasErrors('queue');
+    expect(VitalSign::count())->toBe(1)->and(Queue::count())->toBe(1)
+        ->and($queue->fresh()->status)->toBe('Ready for Consultation');
 });

@@ -1,4 +1,4 @@
-<div x-data="{}" x-on:queue-assignment-prepared="$dispatch('open-modal', 'confirm-queue-assignment')" x-on:queue-assignment-finished="$dispatch('close-modal', 'confirm-queue-assignment')" wire:poll.10s class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+<div x-data="{}" x-on:queue-assignment-prepared="if (window.confirm($event.detail.message)) { $wire.addPatient() }" wire:poll.10s class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
     @php($queues = $this->queues)
     <div class="mb-8">
         <a href="{{ route('queues.display') }}" target="_blank" rel="noopener noreferrer" class="mb-4 inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500">Open Queue Display</a>
@@ -72,19 +72,6 @@
                 <button type="submit" wire:loading.attr="disabled" @disabled($selectedPatientId === null) class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Add to Queue</button>
             </form>
 
-            <x-modal name="confirm-queue-assignment" maxWidth="md" focusable>
-                <div class="p-6" role="dialog" aria-modal="true" aria-labelledby="queue-assignment-title">
-                    <h2 id="queue-assignment-title" class="text-lg font-semibold text-gray-900">Confirm assigned queue number</h2>
-                    @if ($this->pendingPatient)
-                        <p class="mt-4 text-sm text-gray-700">Add <strong>{{ $this->pendingPatient->first_name }} {{ $this->pendingPatient->middle_name }} {{ $this->pendingPatient->last_name }}</strong> (Patient #{{ $pendingPatientId }}) to the queue with assigned number <strong>{{ $pendingQueueNumber }}</strong>?</p>
-                        <p class="mt-2 text-sm text-gray-500">Queue date: {{ $assignmentDate }} · Initial status: Waiting</p>
-                    @endif
-                    <div class="mt-6 flex justify-end gap-3">
-                        <x-secondary-button x-on:click="$dispatch('close-modal', 'confirm-queue-assignment')">Cancel</x-secondary-button>
-                        <x-primary-button type="button" wire:click="addPatient" wire:loading.attr="disabled" wire:target="addPatient" :disabled="$pendingPatientId === null">Confirm and Add</x-primary-button>
-                    </div>
-                </div>
-            </x-modal>
         </section>
     @endcan
 

@@ -8,8 +8,11 @@ use App\Models\VitalSign;
 use App\Services\QueueWorkflow;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -44,6 +47,7 @@ class VitalSignsForm extends Component
 
     public function mount(?int $patient_id = null, ?int $queue_id = null): void
     {
+        Gate::authorize('queue-register');
         if ($patient_id !== null) {
             $this->selectPatient($patient_id);
         }
@@ -54,7 +58,7 @@ class VitalSignsForm extends Component
             Gate::authorize('queue-register');
             $queue = Queue::findOrFail($queue_id);
             abort_unless((int) $queue->patient_id === (int) $this->patient_id, 404);
-            abort_unless($queue->status === 'Vital Signs', 409);
+            abort_unless($queue->status === 'Vital Signs' && $queue->queue_date->toDateString() === now('Asia/Manila')->toDateString(), 409);
             $this->queueId = $queue_id;
         }
     }
@@ -109,6 +113,7 @@ class VitalSignsForm extends Component
 
     public function selectPatient(int $patientId): void
     {
+        Gate::authorize('queue-register');
         if ($this->queueId !== null) {
             $queue = Queue::findOrFail($this->queueId);
             abort_unless((int) $queue->patient_id === $patientId, 403);
@@ -117,6 +122,40 @@ class VitalSignsForm extends Component
         $this->patient = PatientInformation::findOrFail($patientId);
         $this->patient_id = $this->patient->patient_id;
         $this->patientSearch = '';
+    }
+
+    public function getVitalSignsQueueProperty(): Collection
+    {
+        Gate::authorize('queue-register');
+
+        return Queue::with('patient')->whereDate('queue_date', now('Asia/Manila')->toDateString())
+            ->whereIn('status', ['Waiting', 'Called', 'Vital Signs'])->orderBy('queue_number')->get();
+    }
+
+    public function selectQueue(int $queueId, string $expectedStatus): void
+    {
+        Gate::authorize('queue-register');
+        $queue = DB::transaction(function () use ($queueId, $expectedStatus): Queue {
+            $queue = Queue::query()->lockForUpdate()->findOrFail($queueId);
+            if ($queue->queue_date->toDateString() !== now('Asia/Manila')->toDateString()
+                || $queue->status !== $expectedStatus
+                || ! in_array($queue->status, ['Waiting', 'Called', 'Vital Signs'], true)) {
+                throw ValidationException::withMessages(['queue' => 'This queue entry has changed. Check the current queue and select the patient again.']);
+            }
+            $workflow = app(QueueWorkflow::class);
+            if ($queue->status === 'Waiting') {
+                $queue = $workflow->transition($queueId, 'Waiting', 'Called');
+            }
+            if ($queue->status === 'Called') {
+                $queue = $workflow->transition($queueId, 'Called', 'Vital Signs');
+            }
+
+            return $queue;
+        }, 5);
+        $this->resetForm();
+        $this->queueId = $queue->queue_id;
+        $this->selectPatient($queue->patient_id);
+        $this->dispatch('vital-signs-patient-selected');
     }
 
     public function getPatientResultsProperty()
@@ -143,6 +182,7 @@ class VitalSignsForm extends Component
     public function saveVitalSigns(): void
     {
         Gate::authorize('queue-register');
+        $this->calculateBmi();
         $this->validate();
         $activeQueue = Queue::where('patient_id', $this->patient_id)
             ->whereDate('queue_date', now('Asia/Manila')->toDateString())
@@ -156,8 +196,6 @@ class VitalSignsForm extends Component
 
             return;
         }
-
-        $this->calculateBmi();
 
         $save = fn (?Queue $queue = null): VitalSign => VitalSign::create([
             'queue_id' => $queue?->queue_id,
@@ -191,11 +229,7 @@ class VitalSignsForm extends Component
         }
 
         session()->flash('success', $this->queueId !== null ? 'Vital signs saved successfully. The visit is now ready for consultation.' : 'Vital signs saved successfully.');
-        if ($this->queueId !== null) {
-            $this->redirect(route('queues.index'), navigate: true);
-
-            return;
-        }
+        $this->resetForm();
         $this->dispatch('vital-signs-saved');
     }
 
@@ -218,30 +252,12 @@ class VitalSignsForm extends Component
 
     public function resetForm(): void
     {
-        $patientId = $this->patient_id;
-        $patient = $this->patient;
-
+        Gate::authorize('queue-register');
         $this->reset([
-            'blood_pressure',
-            'temperature',
-            'pulse_rate',
-            'respiratory_rate',
-            'height',
-            'weight',
-            'bmi',
-            'patientSearch',
+            'queueId', 'patient_id', 'patient', 'blood_pressure', 'temperature',
+            'pulse_rate', 'respiratory_rate', 'height', 'weight', 'bmi', 'patientSearch',
         ]);
-
-        $this->patient_id = $patientId;
-        $this->patient = $patient;
+        $this->resetErrorBag();
         $this->recorded_at = now('Asia/Manila')->toDateString();
-
-        if ($queue_id !== null) {
-            Gate::authorize('queue-register');
-            $queue = Queue::findOrFail($queue_id);
-            abort_unless((int) $queue->patient_id === (int) $this->patient_id, 404);
-            abort_unless($queue->status === 'Vital Signs', 409);
-            $this->queueId = $queue_id;
-        }
     }
 }

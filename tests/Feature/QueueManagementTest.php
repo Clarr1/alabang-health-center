@@ -10,13 +10,13 @@ use Livewire\Livewire;
 
 it('searches existing patients by name and ID and prevents duplicate adds', function () {
     $staff = User::factory()->create();
-    $patient = PatientInformation::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos']);
+    $patient = PatientInformation::factory()->create(['first_name' => 'Maria', 'middle_name' => 'Reyes', 'last_name' => 'Santos']);
     $component = Livewire::actingAs($staff)->test(QueueManagement::class)
         ->set('patientSearch', 'Maria Santos')->assertSee('Maria')
         ->set('patientSearch', (string) $patient->patient_id)->assertSee('Maria')
         ->call('selectPatient', $patient->patient_id)
         ->set('queueNumber', '42')->call('prepareAssignment')->assertHasNoErrors()
-        ->assertDispatched('queue-assignment-prepared')->assertSet('pendingQueueNumber', 42)
+        ->assertDispatched('queue-assignment-prepared', message: "Add Maria {$patient->middle_name} Santos to the queue with assigned number 42?")->assertSet('pendingQueueNumber', 42)
         ->call('addPatient')->assertHasNoErrors()
         ->assertSee('Assigned queue number: 42')
         ->assertSet('selectedPatientId', null)->assertSet('queueNumber', '')
@@ -27,7 +27,7 @@ it('searches existing patients by name and ID and prevents duplicate adds', func
 
 it('filters by patient name ID queue number status and date and paginates', function () {
     $staff = User::factory()->create();
-    $patient = PatientInformation::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos']);
+    $patient = PatientInformation::factory()->create(['first_name' => 'Maria', 'middle_name' => 'Reyes', 'last_name' => 'Santos']);
     Queue::factory()->create(['patient_id' => $patient->patient_id, 'queue_number' => 77, 'status' => 'Called']);
     foreach (range(1, 11) as $number) {
         Queue::factory()->create(['queue_number' => $number]);
@@ -95,7 +95,7 @@ it('requires selection a valid number and a confirmation step before saving', fu
     expect(Queue::count())->toBe(0);
     $component->set('queueNumber', '42')->call('prepareAssignment')->assertHasNoErrors()
         ->assertSet('pendingPatientId', $patient->patient_id)->assertSet('pendingQueueNumber', 42)
-        ->assertSee('queue with assigned number');
+        ->assertDispatched('queue-assignment-prepared', fn (string $event, array $parameters): bool => str_contains($parameters['message'], 'queue with assigned number 42?'));
     expect(Queue::count())->toBe(0);
     $component->set('queueNumber', '99')->call('addPatient')->assertHasNoErrors();
     expect(Queue::firstOrFail()->queue_number)->toBe(42);

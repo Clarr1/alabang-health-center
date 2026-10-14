@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+<div x-data x-on:vital-signs-patient-selected.window="$nextTick(() => $refs.vitalSignsForm.scrollIntoView({ behavior: 'smooth', block: 'start' }))" class="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
     @if ($queueId)
         <div class="mb-6 rounded-md bg-blue-50 p-4 text-sm text-blue-700">Recording vital signs for this queue visit. Saving will mark the patient Ready for Consultation. <a href="{{ route('queues.index') }}" wire:navigate class="font-semibold underline">Back to Queue</a></div>
     @endif
@@ -23,22 +23,43 @@
         </div>
     @endif
 
-    <form wire:submit.prevent="saveVitalSigns" wire:confirm="Save these vital signs?" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div class="border-b border-gray-200 pb-6">
-            <label for="patient-search" class="mb-1 block text-sm font-medium text-gray-700">Search Patient</label>
-            <input id="patient-search" type="search" wire:model.live.debounce.300ms="patientSearch" placeholder="Search by name or patient ID" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
-
-            @if ($patientSearch && $this->patientResults->isNotEmpty())
-                <div class="mt-2 overflow-hidden rounded-md border border-gray-200">
-                    @foreach ($this->patientResults as $result)
-                        <button type="button" wire:click="selectPatient({{ $result->patient_id }})" class="block w-full border-b border-gray-100 px-3 py-2 text-left last:border-b-0 hover:bg-gray-50">
-                            <span class="block text-sm font-medium text-gray-900">{{ $result->last_name }}, {{ $result->first_name }} {{ $result->middle_name }}</span>
-                            <span class="block text-xs text-gray-500">Patient #{{ $result->patient_id }}</span>
-                        </button>
-                    @endforeach
+    <section class="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm" wire:poll.5s>
+        <h2 class="text-lg font-semibold text-gray-900">Today's Vital Signs Queue</h2>
+        <p class="mt-1 text-sm text-gray-600">Select a patient to call them and start recording vital signs.</p>
+        <div class="mt-4 space-y-3">
+            @forelse ($this->vitalSignsQueue as $entry)
+                <div wire:key="vital-queue-{{ $entry->queue_id }}" class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 p-3">
+                    <button type="button" wire:click="selectQueue({{ $entry->queue_id }}, '{{ $entry->status }}')" wire:loading.attr="disabled" wire:target="selectQueue,saveVitalSigns" class="text-left hover:text-blue-700">
+                        <span class="font-semibold">#{{ $entry->queue_number }} - {{ $entry->patient->first_name }} {{ $entry->patient->middle_name }} {{ $entry->patient->last_name }}</span>
+                    </button>
+                    <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $entry->badgeClasses() }}">{{ $entry->status }}</span>
+                    <button type="button" wire:click="selectQueue({{ $entry->queue_id }}, '{{ $entry->status }}')" wire:loading.attr="disabled" wire:target="selectQueue,saveVitalSigns" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">Record Vital Signs</button>
                 </div>
-            @elseif ($patientSearch && $patientSearch !== $patient?->first_name)
-                <p class="mt-2 text-sm text-gray-500">No matching patients found.</p>
+            @empty
+                <p class="text-sm text-gray-500">No patients waiting for vital signs today.</p>
+            @endforelse
+        </div>
+    </section>
+
+    <form wire:submit.prevent="saveVitalSigns" x-ref="vitalSignsForm" wire:confirm="{{ $queueId ? 'Save these vital signs and send this queue visit to consultation?' : 'Save these vital signs?' }}" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div class="border-b border-gray-200 pb-6">
+            @if (! $queueId)
+                <label for="patient-search" class="mb-1 block text-sm font-medium text-gray-700">Search Patient</label>
+                <input id="patient-search" type="search" wire:model.live.debounce.300ms="patientSearch" placeholder="Search by name or patient ID" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+
+                @if ($patientSearch && $this->patientResults->isNotEmpty())
+                    <div class="mt-2 overflow-hidden rounded-md border border-gray-200">
+                        @foreach ($this->patientResults as $result)
+                            <button type="button" wire:click="selectPatient({{ $result->patient_id }})" class="block w-full border-b border-gray-100 px-3 py-2 text-left last:border-b-0 hover:bg-gray-50">
+                                <span class="block text-sm font-medium text-gray-900">{{ $result->last_name }}, {{ $result->first_name }} {{ $result->middle_name }}</span>
+                                <span class="block text-xs text-gray-500">Patient #{{ $result->patient_id }}</span>
+                            </button>
+                        @endforeach
+                    </div>
+                @elseif ($patientSearch && $patientSearch !== $patient?->first_name)
+                    <p class="mt-2 text-sm text-gray-500">No matching patients found.</p>
+                @endif
+
             @endif
 
             @if ($patient)
@@ -102,8 +123,8 @@
         </div>
 
         <div class="flex justify-end">
-            <button type="submit" class="rounded-md bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-500">
-                Save Vital Signs
+            <button type="submit" wire:loading.attr="disabled" wire:target="saveVitalSigns,selectQueue" @disabled(! $patient) class="rounded-md bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-500">
+                {{ $queueId ? 'Save Vital Signs and Send to Consultation' : 'Save Vital Signs' }}
             </button>
         </div>
     </form>
@@ -116,12 +137,3 @@
         </script>
     @endscript
 @endif
-
-@script
-    <script>
-        $wire.on('vital-signs-saved', () => {
-            alert('Vital signs saved successfully!');
-            $wire.call('resetForm');
-        });
-    </script>
-@endscript

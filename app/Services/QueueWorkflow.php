@@ -138,6 +138,9 @@ class QueueWorkflow
             $queue = Queue::query()->lockForUpdate()->findOrFail($queueId);
             $this->assertPatient($queue, $patientId);
             $this->assertStatus($queue, 'Vital Signs');
+            if ($queue->queue_date->toDateString() !== now('Asia/Manila')->toDateString() || $queue->vitalSign()->exists()) {
+                throw ValidationException::withMessages(['queue' => 'Select the current unsaved vital signs visit.']);
+            }
             $record = $save($queue);
             $this->transition($queueId, 'Vital Signs', 'Ready for Consultation');
 

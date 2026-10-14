@@ -96,7 +96,9 @@ class QueueManagement extends Component
         $this->pendingQueueNumber = (int) $validated['queueNumber'];
         $this->assignmentDate = $date;
         unset($this->pendingPatient);
-        $this->dispatch('queue-assignment-prepared');
+        $patient = PatientInformation::findOrFail($this->pendingPatientId);
+        $patientName = trim(implode(' ', array_filter([$patient->first_name, $patient->middle_name, $patient->last_name])));
+        $this->dispatch('queue-assignment-prepared', message: "Add {$patientName} to the queue with assigned number {$this->pendingQueueNumber}?");
     }
 
     public function addPatient(): void
