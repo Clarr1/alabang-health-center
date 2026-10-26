@@ -18,7 +18,7 @@ class Queue extends Model
 
     protected $primaryKey = 'queue_id';
 
-    protected $fillable = ['patient_id', 'queue_number', 'queue_date', 'status', 'called_at', 'completed_at', 'assigned_by'];
+    protected $fillable = ['patient_id', 'queue_number', 'queue_date', 'status', 'called_at', 'completed_at', 'assigned_by', 'consulting_doctor_id'];
 
     protected function casts(): array
     {

@@ -114,6 +114,17 @@ class QueueWorkflow
                 throw ValidationException::withMessages(['queue' => 'Save the medical record before completing this visit.']);
             }
 
+            if ($nextStatus === 'In Consultation') {
+                if ($queue->queue_date->toDateString() !== now('Asia/Manila')->toDateString() || ! $queue->vitalSign()->where('patient_id', $queue->patient_id)->exists()) {
+                    throw ValidationException::withMessages(['queue' => 'Select a current visit with recorded vital signs.']);
+                }
+                $queue->consulting_doctor_id = Auth::id();
+            }
+
+            if ($nextStatus === 'Completed') {
+                $this->assertConsultingDoctor($queue);
+            }
+
             $queue->status = $nextStatus;
 
             if ($nextStatus === 'Called') {
@@ -156,6 +167,10 @@ class QueueWorkflow
             $queue = Queue::query()->lockForUpdate()->findOrFail($queueId);
             $this->assertPatient($queue, $patientId);
             $this->assertStatus($queue, 'In Consultation');
+            $this->assertConsultingDoctor($queue);
+            if ($queue->queue_date->toDateString() !== now('Asia/Manila')->toDateString() || $queue->medicalRecord()->exists()) {
+                throw ValidationException::withMessages(['queue' => 'Select the current unsaved consultation visit.']);
+            }
 
             if (! $queue->vitalSign()->whereKey($vitalId)->exists()) {
                 throw ValidationException::withMessages(['vital_signs_id' => 'Use the vital signs recorded for this queue visit.']);
@@ -166,6 +181,34 @@ class QueueWorkflow
 
             return $record;
         }, 5);
+    }
+
+    public function resumeConsultation(int $queueId): Queue
+    {
+        Gate::authorize('queue-consult');
+
+        return DB::transaction(function () use ($queueId): Queue {
+            $queue = Queue::query()->lockForUpdate()->findOrFail($queueId);
+            $this->assertStatus($queue, 'In Consultation');
+            $this->assertConsultingDoctor($queue);
+            if ($queue->queue_date->toDateString() !== now('Asia/Manila')->toDateString()) {
+                throw ValidationException::withMessages(['queue' => 'Select a consultation from today.']);
+            }
+
+            return $queue;
+        }, 5);
+    }
+
+    private function assertConsultingDoctor(Queue $queue): void
+    {
+        if ($queue->consulting_doctor_id === null) {
+            $queue->consulting_doctor_id = Auth::id();
+            $queue->save();
+        }
+
+        if ((int) $queue->consulting_doctor_id !== (int) Auth::id()) {
+            throw ValidationException::withMessages(['queue' => 'This consultation belongs to another doctor.']);
+        }
     }
 
     private function assertStatus(Queue $queue, string $expectedStatus): void

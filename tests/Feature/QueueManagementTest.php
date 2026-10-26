@@ -5,6 +5,7 @@ use App\Livewire\QueueManagement;
 use App\Models\PatientInformation;
 use App\Models\Queue;
 use App\Models\User;
+use App\Models\VitalSign;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
@@ -58,6 +59,7 @@ it('shows staff actions and rejects manually submitted doctor actions', function
 it('allows doctors to start consultation but not enqueue patients', function () {
     $doctor = User::factory()->create(['role' => 'Doctor']);
     $queue = Queue::factory()->create(['status' => 'Ready for Consultation']);
+    VitalSign::create(['queue_id' => $queue->queue_id, 'patient_id' => $queue->patient_id, 'recorded_by' => $doctor->user_id]);
     Livewire::actingAs($doctor)->test(QueueManagement::class)
         ->assertSee('Start Consultation')->assertDontSee('Add an existing patient')
         ->call('changeStatus', $queue->queue_id, 'Ready for Consultation', 'In Consultation')

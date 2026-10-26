@@ -7,25 +7,30 @@ use App\Models\PatientInformation;
 use App\Models\Queue;
 use App\Services\QueueWorkflow;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
+#[Title("Doctor's Consultation")]
 class MedicalRecordsForm extends Component
 {
     #[Locked]
     public ?int $queueId = null;
 
+    #[Locked]
     public $patient;
 
+    #[Locked]
     public $patient_id;
-
-    public $patientSearch = '';
 
     public $vital_signs_id = '';
 
@@ -39,57 +44,133 @@ class MedicalRecordsForm extends Component
 
     public $consultation_date = '';
 
+    public $follow_up_date = '';
+
     public $selectedMedicalRecordId = null;
 
     public $showMedicalRecordModal = false;
 
     public function mount(?int $patient_id = null, ?int $queue_id = null): void
     {
+        Gate::authorize('queue-consult');
         $this->consultation_date = now('Asia/Manila')->toDateString();
-
-        if ($patient_id !== null) {
-            $this->selectPatient($patient_id);
-        }
+        $this->patient_id = null;
 
         if ($queue_id !== null) {
-            Gate::authorize('queue-consult');
             $queue = Queue::findOrFail($queue_id);
-            abort_unless((int) $queue->patient_id === (int) $this->patient_id, 404);
-            abort_unless($queue->status === 'In Consultation', 409);
-            $this->queueId = $queue_id;
-            $this->vital_signs_id = $queue->vitalSign()->value('vital_id') ?? '';
+            abort_unless((int) $queue->patient_id === $patient_id, 404);
+            abort_unless($queue->status === 'In Consultation' && $queue->queue_date->toDateString() === now('Asia/Manila')->toDateString(), 409);
+            abort_unless($queue->consulting_doctor_id === null || (int) $queue->consulting_doctor_id === (int) Auth::id(), 403);
+            $this->openConsultation(app(QueueWorkflow::class)->resumeConsultation($queue_id));
         }
     }
 
+    #[Computed]
+    public function consultationQueue(): Collection
+    {
+        Gate::authorize('queue-consult');
+
+        return Queue::with('patient')->whereDate('queue_date', now('Asia/Manila')->toDateString())
+            ->where('status', 'Ready for Consultation')
+            ->whereHas('vitalSign', fn (Builder $query): Builder => $query->whereColumn('vital_signs.patient_id', 'queues.patient_id'))
+            ->doesntHave('medicalRecord')->orderBy('queue_number')->get();
+    }
+
+    #[Computed]
+    public function activeConsultations(): Collection
+    {
+        Gate::authorize('queue-consult');
+
+        return Queue::with('patient')->whereDate('queue_date', now('Asia/Manila')->toDateString())
+            ->where('status', 'In Consultation')->where('consulting_doctor_id', Auth::id())
+            ->orderBy('queue_number')->get();
+    }
+
+    public function startConsultation(int $queueId): void
+    {
+        Gate::authorize('queue-consult');
+        if ($this->queueId !== null) {
+            $this->addError('queue', 'Complete the selected consultation before starting another.');
+
+            return;
+        }
+
+        try {
+            $queue = app(QueueWorkflow::class)->transition($queueId, 'Ready for Consultation', 'In Consultation');
+        } catch (ValidationException $exception) {
+            $this->setErrorBag($exception->validator->errors());
+
+            return;
+        } catch (QueryException $exception) {
+            report($exception);
+            $this->addError('queue', 'Unable to start this consultation. Please try again.');
+
+            return;
+        }
+
+        $this->openConsultation($queue);
+    }
+
+    public function resumeConsultation(int $queueId): void
+    {
+        Gate::authorize('queue-consult');
+        if ($this->queueId !== null) {
+            $this->addError('queue', 'Complete the selected consultation first.');
+
+            return;
+        }
+
+        try {
+            $queue = app(QueueWorkflow::class)->resumeConsultation($queueId);
+        } catch (ValidationException $exception) {
+            $this->setErrorBag($exception->validator->errors());
+
+            return;
+        } catch (QueryException $exception) {
+            report($exception);
+            $this->addError('queue', 'Unable to open this consultation. Please try again.');
+
+            return;
+        }
+
+        $this->openConsultation($queue);
+    }
+
+    private function openConsultation(Queue $queue): void
+    {
+        $this->resetForm();
+        $this->patient = PatientInformation::findOrFail($queue->patient_id);
+        $this->patient_id = $queue->patient_id;
+        $this->queueId = $queue->queue_id;
+        $this->vital_signs_id = $queue->vitalSign()->value('vital_id') ?? '';
+        unset($this->vitalSigns, $this->medicalRecords, $this->consultationQueue, $this->activeConsultations);
+        $this->dispatch('queue-updated');
+    }
+
+    /** @return array<string, array<int, string>> */
     public function rules(): array
     {
         return [
+            'queueId' => ['required', 'integer', 'exists:queues,queue_id'],
             'patient_id' => ['required', 'integer', 'exists:patient_information,patient_id'],
             'vital_signs_id' => ['required', 'integer', 'exists:vital_signs,vital_id'],
             'diagnosis' => ['required', 'string'],
             'prescription' => ['nullable', 'string'],
-            'treatment' => ['nullable', 'string'],
-            'consultation_notes' => ['nullable', 'string'],
+            'treatment' => [$this->queueId !== null ? 'required' : 'nullable', 'string'],
+            'consultation_notes' => [$this->queueId !== null ? 'required' : 'nullable', 'string'],
             'consultation_date' => ['required', 'date'],
+            'follow_up_date' => ['nullable', 'date', 'after_or_equal:consultation_date'],
         ];
-    }
-
-    public function selectPatient(int $patientId): void
-    {
-        if ($this->queueId !== null) {
-            $queue = Queue::findOrFail($this->queueId);
-            abort_unless((int) $queue->patient_id === $patientId, 403);
-        }
-
-        $this->patient = PatientInformation::findOrFail($patientId);
-        $this->patient_id = $this->patient->patient_id;
-        $this->patientSearch = '';
-        $this->vital_signs_id = $this->patient->vitalSigns()->latest('recorded_at')->latest('vital_id')->value('vital_id') ?? '';
-        $this->closeMedicalRecordModal();
     }
 
     public function selectVitalSign(int $vitalId): void
     {
+        Gate::authorize('queue-consult');
+        if ($this->queueId !== null && ! Queue::findOrFail($this->queueId)->vitalSign()->whereKey($vitalId)->exists()) {
+            $this->addError('vital_signs_id', 'Use the vital signs recorded for this queue visit.');
+
+            return;
+        }
         if ($this->patient && $this->patient->vitalSigns()->whereKey($vitalId)->exists()) {
             $this->vital_signs_id = $vitalId;
         }
@@ -97,12 +178,14 @@ class MedicalRecordsForm extends Component
 
     public function viewMedicalRecord(int $medicalRecordId): void
     {
+        Gate::authorize('queue-consult');
         if (! $this->patient || ! $this->patient->medicalRecords()->whereKey($medicalRecordId)->exists()) {
             return;
         }
 
         $this->selectedMedicalRecordId = $medicalRecordId;
         $this->showMedicalRecordModal = true;
+        unset($this->selectedMedicalRecord);
     }
 
     public function closeMedicalRecordModal(): void
@@ -113,39 +196,21 @@ class MedicalRecordsForm extends Component
     }
 
     #[Computed]
-    public function patientResults()
+    public function vitalSigns(): Collection
     {
-        $search = trim($this->patientSearch);
+        Gate::authorize('queue-consult');
 
-        if (mb_strlen($search) < 2) {
-            return collect();
-        }
-
-        return PatientInformation::query()
-            ->where(function ($query) use ($search) {
-                $query->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('middle_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('patient_id', 'like', "%{$search}%")
-                    ->orWhere('contact_number', 'like', "%{$search}%");
-            })
-            ->orderBy('last_name')
-            ->orderBy('first_name')
-            ->limit(8)
-            ->get();
-    }
-
-    #[Computed]
-    public function vitalSigns()
-    {
         return $this->patient
-            ? $this->patient->vitalSigns()->with('recordedBy')->latest('recorded_at')->latest('vital_id')->get()
+            ? $this->patient->vitalSigns()->when($this->queueId !== null, fn (Builder $query): Builder => $query->where('queue_id', $this->queueId))
+                ->with('recordedBy')->latest('recorded_at')->latest('vital_id')->get()
             : collect();
     }
 
     #[Computed]
-    public function medicalRecords()
+    public function medicalRecords(): Collection
     {
+        Gate::authorize('queue-consult');
+
         return $this->patient
             ? $this->patient->medicalRecords()->with('handledBy', 'vitalSign')->latest('consultation_date')->latest('medical_record_id')->get()
             : collect();
@@ -154,35 +219,27 @@ class MedicalRecordsForm extends Component
     #[Computed]
     public function selectedMedicalRecord(): ?MedicalRecord
     {
+        Gate::authorize('queue-consult');
         if (! $this->patient || ! $this->selectedMedicalRecordId) {
             return null;
         }
 
         return $this->patient->medicalRecords()
-            ->with(['patient', 'handledBy', 'vitalSign.recordedBy'])
-            ->find($this->selectedMedicalRecordId);
+            ->with(['patient', 'handledBy', 'vitalSign.recordedBy'])->find($this->selectedMedicalRecordId);
     }
 
     public function saveMedicalRecord(): void
     {
         Gate::authorize('queue-consult');
         $this->validate();
-        $activeQueue = Queue::where('patient_id', $this->patient_id)
-            ->whereDate('queue_date', now('Asia/Manila')->toDateString())
-            ->whereNotIn('status', Queue::TERMINAL_STATUSES)->first();
-
-        if ($this->queueId === null && $activeQueue !== null) {
-            $this->queueId = $activeQueue->queue_id;
-        }
-
         if (! $this->patient || (int) $this->patient->patient_id !== (int) $this->patient_id || ! $this->patient->vitalSigns()->whereKey($this->vital_signs_id)->exists()) {
             $this->addError('vital_signs_id', 'Select a vital signs record for this consultation.');
 
             return;
         }
 
-        $save = fn (?Queue $queue = null): MedicalRecord => MedicalRecord::create([
-            'queue_id' => $queue?->queue_id,
+        $save = fn (Queue $queue): MedicalRecord => MedicalRecord::create([
+            'queue_id' => $queue->queue_id,
             'patient_id' => $this->patient_id,
             'vital_signs_id' => $this->vital_signs_id,
             'handled_by' => Auth::id(),
@@ -191,20 +248,12 @@ class MedicalRecordsForm extends Component
             'treatment' => $this->treatment ?: null,
             'consultation_notes' => $this->consultation_notes ?: null,
             'consultation_date' => $this->consultation_date,
+            'follow_up_date' => $this->follow_up_date ?: null,
             'created_at' => now(),
         ]);
 
         try {
-            if ($this->queueId !== null) {
-                app(QueueWorkflow::class)->saveMedicalRecord(
-                    $this->queueId,
-                    (int) $this->patient_id,
-                    (int) $this->vital_signs_id,
-                    $save,
-                );
-            } else {
-                $save();
-            }
+            app(QueueWorkflow::class)->saveMedicalRecord($this->queueId, (int) $this->patient_id, (int) $this->vital_signs_id, $save);
         } catch (QueryException $exception) {
             report($exception);
             $this->addError('queue', 'Unable to save this visit. Check the current queue status and try again.');
@@ -212,38 +261,28 @@ class MedicalRecordsForm extends Component
             return;
         }
 
-        session()->flash('success', 'Medical record saved successfully.');
-        if ($this->queueId !== null) {
-            $this->redirect(route('queues.index'), navigate: true);
-
-            return;
-        }
+        $this->resetForm();
         $this->dispatch('medical-record-saved');
+        $this->dispatch('queue-updated');
     }
 
     public function resetForm(): void
     {
-        $patientId = $this->patient_id;
-        $patient = $this->patient;
-        $vitalSignsId = $this->vital_signs_id;
-
         $this->reset([
-            'patientSearch',
-            'diagnosis',
-            'prescription',
-            'treatment',
-            'consultation_notes',
+            'queueId', 'patient', 'patient_id', 'vital_signs_id',
+            'diagnosis', 'prescription', 'treatment', 'consultation_notes', 'follow_up_date',
         ]);
-
-        $this->patient_id = $patientId;
-        $this->patient = $patient;
-        $this->vital_signs_id = $vitalSignsId;
         $this->consultation_date = now('Asia/Manila')->toDateString();
-        unset($this->medicalRecords);
+        $this->patient_id = null;
+        $this->closeMedicalRecordModal();
+        $this->resetValidation();
+        unset($this->medicalRecords, $this->vitalSigns, $this->consultationQueue, $this->activeConsultations);
     }
 
     public function render(): View
     {
+        Gate::authorize('queue-consult');
+
         return view('livewire.medical-records-form');
     }
 }

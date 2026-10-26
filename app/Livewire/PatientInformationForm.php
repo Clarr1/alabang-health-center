@@ -13,50 +13,13 @@ use Livewire\Component;
 #[Layout('layouts.app')]
 class PatientInformationForm extends Component
 {
+    use PatientFormFields;
+
     public $patient;
-
-    public $first_name = '';
-
-    public $middle_name = '';
-
-    public $last_name = '';
-
-    public $birthdate = '';
-
-    public $age = '';
-
-    public $sex = 'Male';
-
-    public $address = '';
-
-    public $contact_number = '';
-
-    public $emergency_contact = '';
-
-    public $registration_date = '';
-
-    public $status = 'Active';
 
     public function mount(): void
     {
         $this->registration_date = now('Asia/Manila')->toDateString();
-    }
-
-    public function rules(): array
-    {
-        return [
-            'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'birthdate' => ['required', 'date'],
-            'age' => ['required', 'integer', 'min:0', 'max:150'],
-            'sex' => ['required', 'in:Male,Female'],
-            'address' => ['required', 'string'],
-            'contact_number' => ['nullable', 'string', 'max:20'],
-            'emergency_contact' => ['nullable', 'string', 'max:255'],
-            'registration_date' => ['required', 'date'],
-            'status' => ['required', 'string', 'max:50'],
-        ];
     }
 
     public function savePatient(): void
@@ -77,7 +40,7 @@ class PatientInformationForm extends Component
                     'contact_number' => $this->contact_number,
                     'emergency_contact' => $this->emergency_contact,
                     'registration_date' => $this->registration_date,
-                    'status' => $this->status,
+                    'status' => 'Active',
                 ]);
 
             }, 5);
@@ -89,11 +52,10 @@ class PatientInformationForm extends Component
             return;
         }
 
-        session()->flash('success', 'Patient registered successfully. Select an assigned queue number to add this visit.');
-        $this->dispatch(
-            'patient-information-saved',
-            redirectUrl: route('queues.index', ['patient' => $this->patient->patient_id]),
-        );
+        $this->resetForm();
+
+        session()->flash('success', 'Patient registered successfully.');
+        $this->dispatch('patient-information-saved');
     }
 
     public function resetForm(): void
@@ -111,7 +73,6 @@ class PatientInformationForm extends Component
 
         $this->sex = 'Male';
         $this->registration_date = now('Asia/Manila')->toDateString();
-        $this->status = 'Active';
         $this->patient = null;
     }
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\PatientInformationForm;
 use App\Livewire\PatientTable;
 use App\Models\PatientInformation;
 use App\Models\User;
@@ -24,6 +25,18 @@ function createTablePatient(array $attributes = []): PatientInformation
         'status' => 'Active',
     ], $attributes));
 }
+
+it('links the patients page to the patient registration form', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('patients.index'))
+        ->assertOk()
+        ->assertSee('href="'.route('patient.information-form').'" wire:navigate', false)
+        ->assertSee('Register Patient');
+
+    $this->get(route('patient.information-form'))
+        ->assertOk()
+        ->assertSeeLivewire(PatientInformationForm::class);
+});
 
 it('searches, paginates, and views a selected patient', function () {
     $user = User::factory()->create();

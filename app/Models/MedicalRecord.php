@@ -23,6 +23,7 @@ class MedicalRecord extends Model
         'treatment',
         'consultation_notes',
         'consultation_date',
+        'follow_up_date',
         'created_at',
     ];
 
@@ -30,6 +31,7 @@ class MedicalRecord extends Model
     {
         return [
             'consultation_date' => 'date',
+            'follow_up_date' => 'date',
             'created_at' => 'datetime',
         ];
     }

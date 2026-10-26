@@ -2,7 +2,10 @@
 
 use App\Http\Controllers\PatientCardController;
 use App\Http\Controllers\ProfileController;
+use App\Livewire\EditPatient;
+use App\Livewire\MedicalRecordDetails;
 use App\Livewire\MedicalRecordsForm;
+use App\Livewire\MedicalRecordsTable;
 use App\Livewire\PatientInformationForm;
 use App\Livewire\PatientTable;
 use App\Livewire\QueueDisplay;
@@ -21,10 +24,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/queues/{queue_id}/consultation/{patient_id}', MedicalRecordsForm::class)->middleware('can:queue-consult')->name('queues.consultation');
     Route::get('/patient-information-form', PatientInformationForm::class)->name('patient.information-form');
     Route::get('/patients', PatientTable::class)->name('patients.index');
+    Route::get('/patients/{patient}/edit', EditPatient::class)->middleware('can:queue-register')->name('patients.edit');
     Route::get('/patients/{patient}/card', [PatientCardController::class, 'show'])->name('patients.card.show');
     Route::get('/patients/{patient}/card/pdf', [PatientCardController::class, 'download'])->name('patients.card.download');
     Route::get('/patient-vital-signs/{patient_id?}', VitalSignsForm::class)->name('patient.vital-signs-form');
-    Route::get('/medical-records/{patient_id?}', MedicalRecordsForm::class)->name('medical-records.index');
+    Route::get('/medical-records/records/{record}', MedicalRecordDetails::class)->middleware('can:queue-view')->name('medical-records.show');
+    Route::get('/medical-records/{patient_id?}', MedicalRecordsTable::class)->middleware('can:queue-view')->name('medical-records.index');
+    Route::get('/doctors-consultation', MedicalRecordsForm::class)->middleware('can:queue-consult')->name('doctors-consultation.index');
+    Route::redirect('/medical-form/{patient_id?}', '/doctors-consultation')->middleware('can:queue-consult')->name('medical-form.index');
 });
 
 Route::get('/dashboard', function () {

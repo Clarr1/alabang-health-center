@@ -1,7 +1,10 @@
 <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-    <div class="mb-8">
-        <h1 class="text-2xl font-bold text-gray-900">Patient Table</h1>
-        <p class="mt-2 text-sm text-gray-600">Search and review registered patient information.</p>
+    <div class="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Patient Table</h1>
+            <p class="mt-2 text-sm text-gray-600">Search and review registered patient information.</p>
+        </div>
+        <a href="{{ route('patient.information-form') }}" wire:navigate class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Register Patient</a>
     </div>
 
     <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -21,7 +24,9 @@
                     <thead>
                         <tr class="text-xs uppercase text-gray-500">
                             <th class="px-3 py-3">Patient ID</th>
-                            <th class="px-3 py-3">Name</th>
+                            <th class="px-3 py-3">First Name</th>
+                            <th class="px-3 py-3">Last Name</th>
+                            <th class="px-3 py-3">Middle Name</th>
                             <th class="px-3 py-3">Sex</th>
                             <th class="px-3 py-3">Age</th>
                             <th class="px-3 py-3">Contact Number</th>
@@ -33,16 +38,21 @@
                         @foreach ($this->patients as $patient)
                             <tr wire:key="patient-{{ $patient->patient_id }}">
                                 <td class="whitespace-nowrap px-3 py-3 text-gray-700">{{ $patient->patient_id }}</td>
-                                <td class="px-3 py-3 font-medium text-gray-900">{{ trim(implode(' ', array_filter([$patient->last_name.',', $patient->first_name, $patient->middle_name]))) ?: 'Not available' }}</td>
+                                <td class="px-3 py-3 font-medium text-gray-900">{{ $patient->first_name ?: 'Not available' }}</td>
+                                <td class="px-3 py-3 font-medium text-gray-900">{{ $patient->last_name ?: 'Not available' }}</td>
+                                <td class="px-3 py-3 text-gray-700">{{ $patient->middle_name ?: 'Not available' }}</td>
                                 <td class="px-3 py-3 text-gray-700">{{ $patient->sex ?: 'Not available' }}</td>
                                 <td class="px-3 py-3 text-gray-700">{{ $patient->age ?? 'Not available' }}</td>
                                 <td class="px-3 py-3 text-gray-700">{{ $patient->contact_number ?: 'Not available' }}</td>
                                 <td class="px-3 py-3 text-gray-700">{{ $patient->status ?: 'Not available' }}</td>
-                                <td class="px-3 py-3"><button type="button" wire:click="viewPatient({{ $patient->patient_id }})" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500">View</button>
-                                    @can('queue-register')
-                                        <a href="{{ route('queues.index', ['patient' => $patient->patient_id]) }}" wire:navigate class="mt-1 inline-block whitespace-nowrap rounded-md border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-700">Add to Queue</a>
-                                    @endcan
-                                    <button type="button" wire:click="generateIdCard({{ $patient->patient_id }})" wire:loading.attr="disabled" wire:target="generateIdCard" class="mt-1 whitespace-nowrap rounded-md border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50">Generate ID Card</button>
+                                <td class="px-3 py-3">
+                                    <div class="flex items-center gap-2 whitespace-nowrap">
+                                        <button type="button" wire:click="viewPatient({{ $patient->patient_id }})" class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500">View</button>
+                                        @can('queue-register')
+                                            <a href="{{ route('patients.edit', $patient) }}" wire:navigate class="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Edit</a>
+                                        @endcan
+                                        <button type="button" wire:click="generateIdCard({{ $patient->patient_id }})" wire:loading.attr="disabled" wire:target="generateIdCard" class="inline-flex items-center justify-center rounded-md border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50">Generate ID Card</button>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach

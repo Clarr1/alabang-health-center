@@ -83,3 +83,15 @@ test('correct password must be provided to delete account', function () {
 
     $this->assertNotNull($user->fresh());
 });
+
+test('profile email uniqueness excludes only the current user', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+
+    $this->actingAs($user)->patch(route('profile.update'), [
+        'name' => $user->name,
+        'email' => $otherUser->email,
+    ])->assertSessionHasErrors('email');
+
+    expect($user->fresh()->email)->toBe($user->email);
+});

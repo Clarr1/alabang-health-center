@@ -1,8 +1,10 @@
 <?php
 
 use App\Livewire\MedicalRecordsForm;
+use App\Livewire\MedicalRecordsTable;
 use App\Models\MedicalRecord;
 use App\Models\PatientInformation;
+use App\Models\Queue;
 use App\Models\User;
 use App\Models\VitalSign;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -10,7 +12,7 @@ use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
-it('searches for a patient, shows vital history, saves, and views a medical record', function () {
+it('starts a queue consultation, shows visit vitals, saves, and views a medical record', function () {
     $user = User::factory()->create(['role' => 'Doctor']);
     $patient = PatientInformation::create([
         'first_name' => 'Maria',
@@ -23,7 +25,9 @@ it('searches for a patient, shows vital history, saves, and views a medical reco
         'registration_date' => '2026-09-23',
         'status' => 'Active',
     ]);
+    $queue = Queue::factory()->create(['patient_id' => $patient->patient_id, 'status' => 'Ready for Consultation']);
     $vitalSign = VitalSign::create([
+        'queue_id' => $queue->queue_id,
         'patient_id' => $patient->patient_id,
         'recorded_by' => $user->user_id,
         'blood_pressure' => '120/80',
@@ -36,9 +40,7 @@ it('searches for a patient, shows vital history, saves, and views a medical reco
 
     Livewire::actingAs($user)
         ->test(MedicalRecordsForm::class)
-        ->set('patientSearch', 'Santos')
-        ->assertSee('Maria')
-        ->call('selectPatient', $patient->patient_id)
+        ->call('startConsultation', $queue->queue_id)->assertSee('Maria')
         ->assertSet('vital_signs_id', $vitalSign->vital_id)
         ->assertSee('120/80')
         ->set('diagnosis', 'Seasonal allergies')
@@ -52,7 +54,7 @@ it('searches for a patient, shows vital history, saves, and views a medical reco
     $medicalRecord->update(['prescription' => 'Cetirizine 10 mg']);
 
     Livewire::actingAs($user)
-        ->test(MedicalRecordsForm::class, ['patient_id' => $patient->patient_id])
+        ->test(MedicalRecordsTable::class, ['patient_id' => $patient->patient_id])
         ->call('viewMedicalRecord', $medicalRecord->medical_record_id)
         ->assertSet('selectedMedicalRecordId', $medicalRecord->medical_record_id)
         ->assertSet('showMedicalRecordModal', true)

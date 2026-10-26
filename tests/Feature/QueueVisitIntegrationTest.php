@@ -50,13 +50,13 @@ it('runs registration through vital signs consultation and completed medical rec
     $medical = Livewire::actingAs($doctor)->test(MedicalRecordsForm::class, [
         'patient_id' => $queue->patient_id, 'queue_id' => $queue->queue_id,
     ])->assertSet('vital_signs_id', $queue->vitalSign->vital_id)->assertSee('120/80')
-        ->set('diagnosis', 'Seasonal allergies')->set('prescription', 'Cetirizine')
-        ->call('saveMedicalRecord')->assertHasNoErrors()->assertRedirect(route('queues.index'));
+        ->set('diagnosis', 'Seasonal allergies')->set('prescription', 'Cetirizine')->set('treatment', 'Rest')->set('consultation_notes', 'Sneezing')
+        ->call('saveMedicalRecord')->assertHasNoErrors()->assertNoRedirect()->assertDispatched('medical-record-saved');
     expect($queue->fresh()->status)->toBe('Completed')
         ->and($queue->fresh()->queue_number)->toBe(42)
         ->and($queue->fresh()->completed_at)->not->toBeNull()
         ->and($queue->medicalRecord->patient_id)->toBe($queue->patient_id);
-    $medical->call('saveMedicalRecord')->assertHasErrors('queue');
+    $medical->call('saveMedicalRecord')->assertHasErrors('patient_id');
     expect(MedicalRecord::count())->toBe(1);
 });
 
@@ -102,7 +102,7 @@ it('rejects medical records that use another visits vital signs and preserves co
     $component = Livewire::actingAs($doctor)->test(MedicalRecordsForm::class, [
         'patient_id' => $queue->patient_id, 'queue_id' => $queue->queue_id,
     ])->call('saveMedicalRecord')->assertHasErrors('diagnosis');
-    $component->set('diagnosis', 'Allergies')->set('vital_signs_id', $oldVital->vital_id)
+    $component->set('diagnosis', 'Allergies')->set('treatment', 'Rest')->set('consultation_notes', 'Sneezing')->set('vital_signs_id', $oldVital->vital_id)
         ->call('saveMedicalRecord')->assertHasErrors('vital_signs_id');
     expect($queue->fresh()->status)->toBe('In Consultation')->and(MedicalRecord::count())->toBe(0);
 });
@@ -128,8 +128,7 @@ it('does not complete consultation when its medical record transaction fails', f
 });
 
 it('prevents staff from saving consultation records and doctors from saving vital signs', function () {
-    Livewire::actingAs(User::factory()->create())->test(MedicalRecordsForm::class)
-        ->call('saveMedicalRecord')->assertForbidden();
+    Livewire::actingAs(User::factory()->create())->test(MedicalRecordsForm::class)->assertForbidden();
     Livewire::actingAs(User::factory()->create(['role' => 'Doctor']))->test(VitalSignsForm::class)->assertForbidden();
 });
 

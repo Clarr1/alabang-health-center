@@ -5,6 +5,7 @@ use App\Livewire\QueueManagement;
 use App\Models\PatientInformation;
 use App\Models\Queue;
 use App\Models\User;
+use App\Models\VitalSign;
 use App\Services\QueueWorkflow;
 use Livewire\Livewire;
 
@@ -58,6 +59,7 @@ it('refreshes an independent display when staff change queues and removes termin
 
     $doctor = User::factory()->create(['role' => 'Doctor']);
     $consultation = Queue::factory()->create(['queue_number' => 90, 'status' => 'Ready for Consultation']);
+    VitalSign::create(['queue_id' => $consultation->queue_id, 'patient_id' => $consultation->patient_id, 'recorded_by' => $doctor->user_id]);
     $this->actingAs($doctor);
     app(QueueWorkflow::class)->transition($consultation->queue_id, 'Ready for Consultation', 'In Consultation');
     $display->call('$refresh')->assertViewHas('stages', fn (array $stages): bool => array_column($stages['consultation']['serving'], 'number') === [90]
