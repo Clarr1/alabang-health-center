@@ -2,27 +2,29 @@
 
 namespace App\Livewire;
 
-use App\Models\MedicalRecord;
+use App\Models\PatientInformation;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
+#[Title('Medical Record Details')]
 class MedicalRecordDetails extends Component
 {
     #[Locked]
-    public int $medicalRecordId;
+    public int $patientId;
 
     #[Locked]
     public string $backUrl;
 
-    public function mount(MedicalRecord $record): void
+    public function mount(PatientInformation $record): void
     {
         Gate::authorize('queue-view');
 
-        $this->medicalRecordId = $record->medical_record_id;
+        $this->patientId = $record->patient_id;
         $this->backUrl = route('medical-records.index', request()->only(['search', 'fromDate', 'toDate', 'page']));
     }
 
@@ -31,8 +33,10 @@ class MedicalRecordDetails extends Component
         Gate::authorize('queue-view');
 
         return view('livewire.medical-record-details', [
-            'record' => MedicalRecord::with(['patient', 'handledBy', 'vitalSign.recordedBy'])
-                ->findOrFail($this->medicalRecordId),
+            'patient' => PatientInformation::with([
+                'medicalRecords' => fn ($query) => $query->with(['handledBy', 'vitalSign.recordedBy'])
+                    ->orderByDesc('consultation_date')->orderByDesc('medical_record_id'),
+            ])->findOrFail($this->patientId),
         ]);
     }
 }

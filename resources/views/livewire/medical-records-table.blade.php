@@ -31,27 +31,27 @@
             </div>
         @endif
 
-        <p class="mb-4 text-sm text-gray-500">{{ $medicalRecords->total() }} {{ $medicalRecords->total() === 1 ? 'record' : 'records' }}</p>
+        <p class="mb-4 text-sm text-gray-500">{{ $patients->total() }} {{ $patients->total() === 1 ? 'patient' : 'patients' }}</p>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 text-left text-sm">
                 <thead>
                     <tr class="text-xs uppercase text-gray-500">
                         <th class="px-3 py-3">Patient Name</th>
                         <th class="px-3 py-3">Patient ID</th>
-                        <th class="px-3 py-3">Consultation Date</th>
-                        <th class="px-3 py-3">Attending Doctor</th>
+                        <th class="px-3 py-3">Total Medical Records</th>
+                        <th class="px-3 py-3">Latest Consultation Date</th>
                         <th class="px-3 py-3 text-right">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    @forelse ($medicalRecords as $record)
-                        <tr wire:key="medical-record-{{ $record->medical_record_id }}">
-                            <td class="px-3 py-3 font-medium text-gray-900">{{ trim(implode(' ', array_filter([$record->patient?->first_name, $record->patient?->middle_name, $record->patient?->last_name]))) ?: 'Not available' }}</td>
-                            <td class="px-3 py-3 text-gray-700">{{ $record->patient_id }}</td>
-                            <td class="whitespace-nowrap px-3 py-3 text-gray-700">{{ $record->consultation_date?->format('M j, Y') ?: 'Not available' }}</td>
-                            <td class="px-3 py-3 text-gray-700">{{ $record->handledBy?->name ?: 'Not available' }}</td>
+                    @forelse ($patients as $patient)
+                        <tr wire:key="patient-medical-records-{{ $patient->patient_id }}">
+                            <td class="px-3 py-3 font-medium text-gray-900">{{ trim(implode(' ', array_filter([$patient->first_name, $patient->middle_name, $patient->last_name]))) ?: 'Not provided.' }}</td>
+                            <td class="px-3 py-3 text-gray-700">{{ $patient->patient_id }}</td>
+                            <td class="px-3 py-3 text-gray-700">{{ $patient->medical_records_count }}</td>
+                            <td class="whitespace-nowrap px-3 py-3 text-gray-700">{{ $patient->medical_records_max_consultation_date ? \Illuminate\Support\Carbon::parse($patient->medical_records_max_consultation_date)->format('M j, Y') : 'Not provided.' }}</td>
                             <td class="px-3 py-3 text-right">
-                                <a href="{{ route('medical-records.show', ['record' => $record->medical_record_id, 'search' => $search, 'fromDate' => $fromDate, 'toDate' => $toDate, 'page' => $medicalRecords->currentPage()]) }}" wire:navigate class="inline-block whitespace-nowrap rounded-md bg-blue-600 px-3 py-2 font-semibold text-white hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">View Details</a>
+                                <a href="{{ route('medical-records.show', ['record' => $patient->patient_id, 'search' => $search, 'fromDate' => $fromDate, 'toDate' => $toDate, 'page' => $patients->currentPage()]) }}" wire:navigate class="inline-block whitespace-nowrap rounded-md bg-blue-600 px-3 py-2 font-semibold text-white hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">View Details</a>
                             </td>
                         </tr>
                     @empty
@@ -60,7 +60,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="mt-5">{{ $medicalRecords->links() }}</div>
+        <div class="mt-5">{{ $patients->links() }}</div>
     </section>
 
 </div>

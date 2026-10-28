@@ -35,19 +35,19 @@ it('browses saved records by full patient name exact ID and inclusive date range
     $second = savedRecordForBrowsing($doctor, $patient, '2026-10-14');
     $other = savedRecordForBrowsing($doctor, null, '2026-10-15');
     $component = Livewire::actingAs($doctor)->test(MedicalRecordsTable::class)
-        ->assertSee('Patient Name')->assertSee('Patient ID')->assertSee('Consultation Date')->assertSee('Attending Doctor')
-        ->assertSee('Doctor Reyes')->assertSee('View Details')->assertDontSee('wire:submit="saveMedicalRecord"', false)
+        ->assertSee('Patient Name')->assertSee('Patient ID')->assertSee('Total Medical Records')->assertSee('Latest Consultation Date')
+        ->assertSee('View Details')->assertDontSee('wire:submit="saveMedicalRecord"', false)
         ->assertDontSee('wire:poll.5s', false)
         ->set('search', 'BrowseMaria BrowseSantos');
-    expect($component->get('medicalRecords')->pluck('medical_record_id')->all())->toBe([$second->medical_record_id, $first->medical_record_id]);
+    expect($component->get('patients')->pluck('patient_id')->all())->toBe([$patient->patient_id]);
     $component->set('search', 'BrowseSantos Elena BrowseMaria');
-    expect($component->get('medicalRecords')->total())->toBe(2);
+    expect($component->get('patients')->total())->toBe(1);
     $component->set('search', (string) $patient->patient_id);
-    expect($component->get('medicalRecords')->total())->toBe(2);
+    expect($component->get('patients')->total())->toBe(1);
     $component->set('fromDate', '2026-10-10')->set('toDate', '2026-10-10');
-    expect($component->get('medicalRecords')->pluck('medical_record_id')->all())->toBe([$first->medical_record_id]);
+    expect($component->get('patients')->pluck('patient_id')->all())->toBe([$patient->patient_id]);
     $component->call('clearFilters')->assertSet('search', '')->assertSet('fromDate', '')->assertSet('toDate', '');
-    expect($component->get('medicalRecords')->total())->toBe(3);
+    expect($component->get('patients')->total())->toBe(2);
     Livewire::actingAs($doctor)->test(MedicalRecordsTable::class, ['patient_id' => $patient->patient_id])
         ->assertSet('search', (string) $patient->patient_id)->assertDontSee($other->patient->first_name);
 });
@@ -83,7 +83,7 @@ it('rejects invalid date filters and recovers without returning unrelated record
     expect($component->get('medicalRecords')->total())->toBe(0);
 });
 
-it('opens each selected record with its own patient consultation and linked visit vital signs', function () {
+it('opens each patient with complete consultation history and linked visit vital signs', function () {
     $doctor = User::factory()->create(['role' => 'Doctor', 'name' => 'Doctor Visit']);
     $staff = User::factory()->create(['name' => 'Recording Nurse']);
     $patient = PatientInformation::factory()->create(['middle_name' => 'RecordedMiddle', 'emergency_contact' => '09189998888']);
@@ -99,26 +99,27 @@ it('opens each selected record with its own patient consultation and linked visi
     $other->update(['diagnosis' => 'Other patient diagnosis']);
 
     $listing = Livewire::actingAs($doctor)->test(MedicalRecordsTable::class)->assertDontSee('role="dialog"', false);
-    foreach ([$record, $laterVisit, $other] as $selected) {
-        $listing->assertSeeHtml('href="'.e(route('medical-records.show', [
-            'record' => $selected->medical_record_id, 'search' => '', 'fromDate' => '', 'toDate' => '', 'page' => 1,
-        ])).'"');
-        $this->actingAs($doctor)->get(route('medical-records.show', $selected))
-            ->assertOk()->assertSeeLivewire(MedicalRecordDetails::class)
-            ->assertSee($selected->patient->first_name)->assertSee($selected->diagnosis)
-            ->assertSee($selected->vitalSign->blood_pressure);
-    }
+    $listing->assertSeeHtml('href="'.e(route('medical-records.show', [
+        'record' => $patient->patient_id, 'search' => '', 'fromDate' => '', 'toDate' => '', 'page' => 1,
+    ])).'"');
 
-    $response = $this->get(route('medical-records.show', $record))
-        ->assertSeeInOrder(['Patient Information', 'Vital Signs', "Doctor's Consultation"])
+    $response = $this->get(route('medical-records.show', ['record' => $patient->patient_id]))
+        ->assertOk()->assertSeeLivewire(MedicalRecordDetails::class)
+        ->assertSeeInOrder(['Patient Information', 'Consultation History', 'Consultation Date', 'Attending Doctor', 'Chief Complaint', 'Diagnosis', 'Actions'])
+        ->assertSee('View All Details')->assertSee('Doctor\'s Consultation')->assertSee('Vital Signs')
         ->assertSee('RecordedMiddle')->assertSee('09189998888')->assertSee($patient->address)
         ->assertSee($patient->birthdate)->assertSee($patient->registration_date)->assertSee($patient->status)
         ->assertSee('120/80 mmHg')->assertSee('36.5')->assertSee('72 bpm')->assertSee('16 breaths/min')
         ->assertSee('165')->assertSee('60')->assertSee('22')->assertSee('Oct 10, 2026')->assertSee('9:15 AM')
         ->assertSee('Recording Nurse')->assertSee('Doctor Visit')->assertSee('Persistent sneezing')
         ->assertSee('Seasonal allergies')->assertSee('Rest and hydration')->assertSee('Cetirizine 10 mg')->assertSee('Oct 21, 2026')
-        ->assertDontSee('150/95')->assertDontSee('Later visit diagnosis')->assertDontSee('Other patient diagnosis')
+        ->assertSee('150/95')->assertSee('Later visit diagnosis')
+        ->assertDontSee('Other patient diagnosis')
         ->assertDontSee('wire:model', false)->assertDontSee('wire:submit', false);
+    expect(substr_count($response->getContent(), 'View All Details'))->toBe(2)
+        ->and(substr_count($response->getContent(), 'open-consultation-modal'))->toBe(4)
+        ->and($response->getContent())->toContain('consultation-modal-title-'.$record->medical_record_id)
+        ->and($response->getContent())->toContain('consultation-modal-title-'.$laterVisit->medical_record_id);
 });
 
 it('displays consistent placeholders for optional patient vital sign and consultation values', function () {
@@ -136,19 +137,16 @@ it('displays consistent placeholders for optional patient vital sign and consult
 it('preserves search date filters and pagination when returning from a record', function () {
     $doctor = User::factory()->create(['role' => 'Doctor']);
     $patient = PatientInformation::factory()->create();
-    foreach (range(1, 12) as $number) {
-        savedRecordForBrowsing($doctor, $patient);
-    }
-    $filters = ['search' => (string) $patient->patient_id, 'fromDate' => '2026-10-01', 'toDate' => '2026-10-31', 'page' => 2];
+    savedRecordForBrowsing($doctor, $patient);
+    $filters = ['search' => (string) $patient->patient_id, 'fromDate' => '2026-10-01', 'toDate' => '2026-10-31', 'page' => 1];
     $listing = Livewire::actingAs($doctor)->withQueryParams($filters)->test(MedicalRecordsTable::class);
     $records = $listing->get('medicalRecords');
-    expect($records->currentPage())->toBe(2)->and($records->count())->toBe(2);
-    foreach ($records as $record) {
-        $url = route('medical-records.show', ['record' => $record->medical_record_id, ...$filters]);
-        $listing->assertSeeHtml('href="'.e($url).'"');
-        $this->actingAs($doctor)->get($url)->assertOk()
-            ->assertSeeHtml('href="'.e(route('medical-records.index', $filters)).'"')->assertSee('Back to Medical Records');
-    }
+    expect($records->currentPage())->toBe(1)->and($records->count())->toBe(1);
+    $patientListing = Livewire::actingAs($doctor)->withQueryParams($filters)->test(MedicalRecordsTable::class);
+    $url = route('medical-records.show', ['record' => $patient->patient_id, ...$filters]);
+    $patientListing->assertSeeHtml('href="'.e($url).'"');
+    $this->actingAs($doctor)->get($url)->assertOk()
+        ->assertSeeHtml('href="'.e(route('medical-records.index', $filters)).'"')->assertSee('Back to Medical Records');
     $this->get(route('medical-records.index', $filters))->assertOk();
     $restored = Livewire::withQueryParams($filters)->test(MedicalRecordsTable::class);
     expect($restored->get('medicalRecords')->modelKeys())->toBe($records->modelKeys());

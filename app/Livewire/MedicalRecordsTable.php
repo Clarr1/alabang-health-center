@@ -43,7 +43,7 @@ class MedicalRecordsTable extends Component
         if (in_array($property, ['search', 'fromDate', 'toDate'], true)) {
             $this->resetPage();
             $this->resetValidation();
-            unset($this->medicalRecords);
+            unset($this->patients, $this->medicalRecords);
         }
     }
 
@@ -53,11 +53,11 @@ class MedicalRecordsTable extends Component
         $this->reset('search', 'fromDate', 'toDate');
         $this->resetPage();
         $this->resetValidation();
-        unset($this->medicalRecords);
+        unset($this->patients, $this->medicalRecords);
     }
 
     #[Computed]
-    public function medicalRecords(): LengthAwarePaginator
+    public function patients(): LengthAwarePaginator
     {
         Gate::authorize('queue-view');
         $toDateRules = ['nullable', 'date_format:Y-m-d'];
@@ -81,15 +81,21 @@ class MedicalRecordsTable extends Component
 
         $search = trim($this->search);
 
-        return MedicalRecord::with(['patient', 'handledBy'])
+        return PatientInformation::query()
+            ->withCount(['medicalRecords' => function (Builder $query): void {
+                $this->applyRecordFilters($query);
+            }])
+            ->withMax(['medicalRecords' => function (Builder $query): void {
+                $this->applyRecordFilters($query);
+            }], 'consultation_date')
             ->when($search !== '', function (Builder $query) use ($search): void {
                 if (ctype_digit($search)) {
-                    $query->where('patient_id', $search);
+                    $query->whereKey($search);
 
                     return;
                 }
 
-                $query->whereHas('patient', function (Builder $query) use ($search): void {
+                $query->where(function (Builder $query) use ($search): void {
                     foreach (preg_split('/\\s+/', $search) as $term) {
                         $query->where(function (Builder $query) use ($term): void {
                             $query->where('first_name', 'like', "%{$term}%")
@@ -99,15 +105,31 @@ class MedicalRecordsTable extends Component
                     }
                 });
             })
+            ->whereHas('medicalRecords', function (Builder $query): void {
+                $this->applyRecordFilters($query);
+            })
+            ->orderByDesc('medical_records_max_consultation_date')
+            ->orderByDesc('patient_id')
+            ->paginate(10);
+    }
+
+    #[Computed]
+    public function medicalRecords(): LengthAwarePaginator
+    {
+        return $this->patients();
+    }
+
+    private function applyRecordFilters(Builder $query): void
+    {
+        $query
             ->when($this->fromDate !== '', fn (Builder $query): Builder => $query->whereDate('consultation_date', '>=', $this->fromDate))
-            ->when($this->toDate !== '', fn (Builder $query): Builder => $query->whereDate('consultation_date', '<=', $this->toDate))
-            ->orderByDesc('consultation_date')->orderByDesc('medical_record_id')->paginate(10);
+            ->when($this->toDate !== '', fn (Builder $query): Builder => $query->whereDate('consultation_date', '<=', $this->toDate));
     }
 
     public function render(): View
     {
         Gate::authorize('queue-view');
 
-        return view('livewire.medical-records-table', ['medicalRecords' => $this->medicalRecords]);
+        return view('livewire.medical-records-table', ['patients' => $this->patients]);
     }
 }
