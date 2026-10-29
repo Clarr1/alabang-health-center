@@ -11,24 +11,38 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased">
-        <div x-data="sidebarNavigation" x-bind:style="{ '--sidebar-width': collapsed ? '5rem' : '16rem' }"
-             style="--sidebar-width: 16rem"
+        <div x-data="sidebarNavigation" x-bind:style="{ '--sidebar-width': collapsed ? '5rem' : '14rem' }"
+             style="--sidebar-width: 14rem"
              x-on:keydown.escape.window="mobileOpen = false"
              x-on:resize.window.debounce.150ms="isDesktop = window.innerWidth >= 1024; if (isDesktop) mobileOpen = false"
              x-on:livewire:navigating.document="mobileOpen = false"
-             class="min-h-screen bg-gray-100">
+             class="min-h-screen bg-blush text-ink">
             @include('layouts.navigation')
 
             <div class="min-w-0 transition-[margin] duration-200 motion-reduce:transition-none lg:ml-[var(--sidebar-width)]">
-                <header class="flex h-16 items-center gap-3 border-b border-gray-200 bg-white px-4 lg:hidden">
-                    <button x-ref="sidebarToggle" type="button" x-on:click="mobileOpen = true; $nextTick(() => $refs.sidebarClose.focus())"
-                            x-bind:aria-expanded="mobileOpen" aria-controls="app-sidebar" aria-label="Open navigation menu"
-                            class="rounded-md p-2 text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
-                    </button>
-                    <span class="text-sm font-semibold text-gray-900">Alabang Health Center</span>
+                <header class="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-white px-4 py-3 text-xs sm:px-7 lg:px-8">
+                    <div class="flex items-center gap-2">
+                        <button x-ref="sidebarToggle" type="button" x-on:click="$el.focus(); mobileOpen = true"
+                                x-bind:aria-expanded="mobileOpen" aria-controls="app-sidebar" aria-label="Open navigation menu"
+                                class="rounded-md p-2 text-ink hover:bg-blush focus:outline-none focus:ring-2 focus:ring-brand-blue lg:hidden">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+                        </button>
+                        <span class="hidden text-muted sm:inline">Patient registration &amp; medical records</span>
+                        <span class="font-medium sm:hidden">Alabang Health Center</span>
+                    </div>
+                    <div class="flex shrink-0 items-center gap-3" aria-label="Partner agencies">
+                        <img src="{{ asset('images/barangay-alabang.png') }}" width="32" height="32" alt="Barangay Alabang" class="h-8 w-8 rounded-full object-contain">
+                        <img src="{{ asset('images/department-of-health.png') }}" width="32" height="32" alt="Department of Health" class="h-8 w-8 rounded-full object-contain">
+                        <img src="{{ asset('images/city-of-muntinlupa.png') }}" width="32" height="32" alt="City of Muntinlupa" class="h-8 w-8 rounded-full object-contain">
+                    </div>
+                    <div class="flex items-center gap-4 max-sm:w-full max-sm:justify-end">
+                        <time datetime="{{ now('Asia/Manila')->toDateString() }}">{{ now('Asia/Manila')->format('D, d M Y') }}</time>
+                        <span class="flex items-center gap-2 text-muted">
+                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg>
+                            Secure session
+                        </span>
+                    </div>
                 </header>
-
                 @isset($header)
                     <header class="border-b border-gray-200 bg-white">
                         <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">

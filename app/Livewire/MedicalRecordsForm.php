@@ -66,6 +66,14 @@ class MedicalRecordsForm extends Component
     }
 
     #[Computed]
+    public function currentQueue(): ?Queue
+    {
+        Gate::authorize('queue-consult');
+
+        return $this->queueId === null ? null : Queue::where('patient_id', $this->patient_id)->find($this->queueId);
+    }
+
+    #[Computed]
     public function consultationQueue(): Collection
     {
         Gate::authorize('queue-consult');

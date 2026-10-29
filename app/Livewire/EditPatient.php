@@ -28,6 +28,7 @@ class EditPatient extends Component
 
         $this->patientId = $patient->patient_id;
         $this->fill($patient->only(array_keys($this->rules())));
+        $this->calculatePatientAge();
     }
 
     public function rules(): array

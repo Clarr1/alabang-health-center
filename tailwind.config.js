@@ -11,6 +11,14 @@ export default {
 
     theme: {
         extend: {
+            colors: {
+                ink: '#293952',
+                muted: '#727d91',
+                line: '#e8eaf0',
+                blush: '#fff7fb',
+                'brand-pink': '#f8a7c6',
+                'brand-blue': '#a8dcf0',
+            },
             fontFamily: {
                 sans: ['Figtree', ...defaultTheme.fontFamily.sans],
             },

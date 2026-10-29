@@ -7,7 +7,9 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
@@ -17,6 +19,9 @@ class PatientInformationForm extends Component
 
     public $patient;
 
+    #[Locked]
+    public ?int $registeredPatientId = null;
+
     public function mount(): void
     {
         $this->registration_date = now('Asia/Manila')->toDateString();
@@ -25,6 +30,10 @@ class PatientInformationForm extends Component
     public function savePatient(): void
     {
         Gate::authorize('queue-register');
+        if ($this->registeredPatientId !== null) {
+            return;
+        }
+
         $this->validate();
 
         try {
@@ -52,7 +61,9 @@ class PatientInformationForm extends Component
             return;
         }
 
+        $registeredPatientId = (int) $this->patient->patient_id;
         $this->resetForm();
+        $this->registeredPatientId = $registeredPatientId;
 
         session()->flash('success', 'Patient registered successfully.');
         $this->dispatch('patient-information-saved');
@@ -60,7 +71,13 @@ class PatientInformationForm extends Component
 
     public function resetForm(): void
     {
+        Gate::authorize('queue-register');
+        $this->resetValidation();
+        $this->registeredPatientId = null;
+        unset($this->registeredPatient);
+        session()->forget('success');
         $this->reset([
+            'showReview',
             'first_name',
             'middle_name',
             'last_name',
@@ -74,6 +91,14 @@ class PatientInformationForm extends Component
         $this->sex = 'Male';
         $this->registration_date = now('Asia/Manila')->toDateString();
         $this->patient = null;
+    }
+
+    #[Computed]
+    public function registeredPatient(): ?PatientInformation
+    {
+        Gate::authorize('queue-register');
+
+        return $this->registeredPatientId === null ? null : PatientInformation::findOrFail($this->registeredPatientId);
     }
 
     public function render(): View

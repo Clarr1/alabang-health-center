@@ -211,7 +211,7 @@ class QueueManagement extends Component
         }
         $search = trim($this->search);
 
-        return Queue::query()->with('patient')
+        return Queue::query()->with(['patient', 'medicalRecord'])
             ->whereDate('queue_date', $this->queueDate)
             ->when($this->status !== '', fn (Builder $query): Builder => $query->where('status', $this->status))
             ->when($search !== '', function (Builder $query) use ($search): void {

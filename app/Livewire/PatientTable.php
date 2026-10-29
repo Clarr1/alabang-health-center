@@ -3,7 +3,9 @@
 namespace App\Livewire;
 
 use App\Models\PatientInformation;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -16,6 +18,12 @@ class PatientTable extends Component
     use WithPagination;
 
     public $search = '';
+
+    public string $recordStatus = '';
+
+    public string $sex = '';
+
+    public string $lastVisit = '';
 
     public $selectedPatientId = null;
 
@@ -39,28 +47,79 @@ class PatientTable extends Component
         $this->reset('cardPatientId', 'showCardModal');
     }
 
-    public function updatedSearch(): void
+    public function updated(string $property): void
     {
+        if (in_array($property, ['search', 'recordStatus', 'sex', 'lastVisit'], true)) {
+            $this->resetPage();
+        }
+    }
+
+    public function resetFilters(): void
+    {
+        $this->reset('search', 'recordStatus', 'sex', 'lastVisit');
         $this->resetPage();
+    }
+
+    /** @return Collection<int, string> */
+    #[Computed]
+    public function recordStatuses(): Collection
+    {
+        return PatientInformation::query()->whereNotNull('status')->where('status', '!=', '')
+            ->distinct()->orderBy('status')->pluck('status');
+    }
+
+    #[Computed]
+    public function activePatientCount(): int
+    {
+        return PatientInformation::where('status', 'Active')->count();
     }
 
     #[Computed]
     public function patients(): LengthAwarePaginator
     {
         $search = trim($this->search);
+        $visits = PatientInformation::query()
+            ->withMax('vitalSigns as last_vital_at', 'recorded_at')
+            ->withMax('medicalRecords as last_consultation_at', 'consultation_date');
+        $lastVisitExpression = 'CASE WHEN last_vital_at IS NULL THEN last_consultation_at
+            WHEN last_consultation_at IS NULL THEN last_vital_at
+            WHEN last_vital_at >= last_consultation_at THEN last_vital_at ELSE last_consultation_at END';
+        $visitCutoff = match ($this->lastVisit) {
+            'today' => now('Asia/Manila')->startOfDay(),
+            'week' => now('Asia/Manila')->startOfDay()->subDays(6),
+            'month' => now('Asia/Manila')->startOfDay()->subDays(29),
+            default => null,
+        };
 
         return PatientInformation::query()
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($query) use ($search) {
+            ->fromSub($visits, 'patient_information')
+            ->select('patient_information.*')
+            ->selectRaw("{$lastVisitExpression} AS last_visit_at")
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $query->where(function (Builder $query) use ($search): void {
                     $query->where('patient_id', 'like', "%{$search}%")
-                        ->orWhere('first_name', 'like', "%{$search}%")
-                        ->orWhere('middle_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('contact_number', 'like', "%{$search}%");
+                        ->orWhere('contact_number', 'like', "%{$search}%")
+                        ->orWhere(function (Builder $query) use ($search): void {
+                            foreach (preg_split('/\s+/u', $search, -1, PREG_SPLIT_NO_EMPTY) as $namePart) {
+                                $query->where(function (Builder $query) use ($namePart): void {
+                                    $query->where('first_name', 'like', "%{$namePart}%")
+                                        ->orWhere('middle_name', 'like', "%{$namePart}%")
+                                        ->orWhere('last_name', 'like', "%{$namePart}%");
+                                });
+                            }
+                        });
                 });
             })
+            ->when($this->recordStatus !== '', fn (Builder $query): Builder => $query->where('status', $this->recordStatus))
+            ->when($this->sex !== '', fn (Builder $query): Builder => $query->where('sex', $this->sex))
+            ->when($visitCutoff !== null, fn (Builder $query): Builder => $query
+                ->whereRaw("{$lastVisitExpression} >= ?", [$visitCutoff->toDateString()])
+                ->whereRaw("{$lastVisitExpression} < ?", [now('Asia/Manila')->addDay()->startOfDay()->toDateString()]))
+            ->when($this->lastVisit === 'never', fn (Builder $query): Builder => $query->whereRaw("{$lastVisitExpression} IS NULL"))
+            ->orderByDesc('last_visit_at')
             ->orderBy('last_name')
             ->orderBy('first_name')
+            ->orderBy('patient_id')
             ->paginate(10);
     }
 

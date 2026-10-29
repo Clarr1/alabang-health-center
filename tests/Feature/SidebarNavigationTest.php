@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Queue;
 use App\Models\User;
 
 it('uses the shared sidebar on authenticated application pages with one active link', function (string $routeName, string $activeLabel) {
@@ -16,6 +17,7 @@ it('uses the shared sidebar on authenticated application pages with one active l
     'dashboard' => ['dashboard', 'Dashboard'],
     'queue' => ['queues.index', 'Queue Management'],
     'patients' => ['patients.index', 'Patients'],
+    'vital signs' => ['patient.vital-signs-form', 'Vital Signs'],
     'records' => ['medical-records.index', 'Medical Records'],
     'form' => ['doctors-consultation.index', 'Doctor&#039;s Consultation'],
     'profile' => ['profile.edit', 'User profile'],
@@ -34,6 +36,13 @@ it('retains role based navigation and uses the same links for desktop and mobile
     } else {
         $response->assertDontSee('aria-label="Doctor&#039;s Consultation"', false);
         $this->get(route('doctors-consultation.index'))->assertForbidden();
+    }
+    if ($role === 'Doctor') {
+        $response->assertDontSee('aria-label="Vital Signs"', false);
+        $this->get(route('patient.vital-signs-form'))->assertForbidden();
+    } else {
+        $response->assertSee('aria-label="Vital Signs"', false);
+        $this->get(route('patient.vital-signs-form'))->assertOk();
     }
     expect(substr_count($response->getContent(), 'aria-label="Main navigation"'))->toBe(1);
 })->with([
@@ -70,4 +79,17 @@ it('keeps the fullscreen queue display free from application navigation and cont
         ->assertSee('Fullscreen')->assertSee('wire:poll.2s.keep-alive', false)
         ->assertDontSee('id="app-sidebar"', false)->assertDontSee('sidebarNavigation')
         ->assertDontSee('--sidebar-width')->assertDontSee('aria-label="Open navigation menu"', false);
+});
+
+it('highlights only vital signs when recording a queue assessment', function () {
+    $queue = Queue::factory()->create(['status' => 'Vital Signs']);
+    $response = $this->actingAs(User::factory()->create())->get(route('queues.vital-signs', [
+        'queue_id' => $queue->queue_id,
+        'patient_id' => $queue->patient_id,
+    ]))->assertOk()->assertSee('Vital signs assessment');
+
+    preg_match('/<aside[^>]*id="app-sidebar".*?<\/aside>/s', $response->getContent(), $sidebar);
+    preg_match('/<a[^>]*aria-label="Vital Signs"[^>]*>/', $sidebar[0], $activeLink);
+    expect(substr_count($sidebar[0], 'aria-current="page"'))->toBe(1)
+        ->and($activeLink[0])->toContain('aria-current="page"');
 });

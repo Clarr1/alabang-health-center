@@ -22,6 +22,28 @@ Alpine.data('sidebarNavigation', () => ({
     },
 }));
 
+Alpine.data('bloodPressureMeasurement', (pressure) => ({
+    pressure,
+
+    get systolic() {
+        return String(this.pressure || '').split('/')[0] || '';
+    },
+
+    set systolic(value) {
+        const diastolic = this.diastolic;
+        this.pressure = value || diastolic ? value + '/' + diastolic : '';
+    },
+
+    get diastolic() {
+        return String(this.pressure || '').split('/')[1] || '';
+    },
+
+    set diastolic(value) {
+        const systolic = this.systolic;
+        this.pressure = systolic || value ? systolic + '/' + value : '';
+    },
+}));
+
 window.Alpine = Alpine;
 
 if (window.livewireScriptConfig) {

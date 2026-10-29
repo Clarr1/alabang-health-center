@@ -55,12 +55,10 @@ it('starts a queue consultation, shows visit vitals, saves, and views a medical 
 
     Livewire::actingAs($user)
         ->test(MedicalRecordsTable::class, ['patient_id' => $patient->patient_id])
-        ->call('viewMedicalRecord', $medicalRecord->medical_record_id)
-        ->assertSet('selectedMedicalRecordId', $medicalRecord->medical_record_id)
-        ->assertSet('showMedicalRecordModal', true)
-        ->assertSee('Cetirizine 10 mg')
-        ->call('closeMedicalRecordModal')
-        ->assertSet('showMedicalRecordModal', false);
+        ->assertSee('View Details');
+
+    $this->get(route('medical-records.show', ['record' => $patient->patient_id]))
+        ->assertOk()->assertSee('Cetirizine 10 mg')->assertSee('View original entry');
 
     $this->assertDatabaseHas('medical_records', [
         'patient_id' => $patient->patient_id,

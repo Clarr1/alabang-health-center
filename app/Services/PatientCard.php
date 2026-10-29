@@ -12,14 +12,21 @@ class PatientCard
 
     public const HEIGHT_MM = 53.98;
 
-    /** @return array{patient: PatientInformation, fullName: string, birthdate: string, qrCode: string} */
+    /** @return array{patient: PatientInformation, fullName: string, birthdate: string, qrCode: string, logos: array<string, string>} */
     public function data(PatientInformation $patient): array
     {
         $qrCode = (new Generator)->format('svg')->size(240)->margin(4)
             ->errorCorrection('M')->generate((string) $patient->patient_id);
 
+        $logos = [];
+
+        foreach (['barangay-alabang', 'city-of-muntinlupa', 'department-of-health'] as $logo) {
+            $logos[$logo] = 'data:image/png;base64,'.base64_encode(file_get_contents(public_path('images/'.$logo.'.png')));
+        }
+
         return [
             'patient' => $patient,
+            'logos' => $logos,
             'fullName' => trim(implode(' ', array_filter([
                 $patient->first_name, $patient->middle_name, $patient->last_name,
             ]))),

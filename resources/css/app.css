@@ -5,3 +5,21 @@
 [x-cloak] {
     display: none !important;
 }
+
+@layer components {
+    .patient-card {
+        @apply rounded-xl border border-line bg-white p-4 sm:p-6;
+    }
+
+    .patient-label {
+        @apply mb-2 block text-xs font-semibold text-ink;
+    }
+
+    .patient-input {
+        @apply rounded-lg border-line bg-white px-3 py-2.5 text-sm text-ink placeholder:text-muted focus:border-brand-blue focus:ring-brand-blue;
+    }
+
+    .patient-button {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg border border-line px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-blush focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-400 disabled:opacity-50;
+    }
+}

@@ -44,7 +44,7 @@ it('opens and closes the card modal without changing the patient record', functi
     expect($patient->fresh()->getAttributes())->toEqual($attributes);
 });
 
-it('renders existing demographic data and a photo placeholder without medical details', function () {
+it('renders the branded photo-free card with existing demographics and no medical details', function () {
     $patient = createCardPatient();
     $this->actingAs(User::factory()->create())
         ->get(route('patients.card.show', $patient))
@@ -53,7 +53,12 @@ it('renders existing demographic data and a photo placeholder without medical de
         ->assertSee('Maria Elena Santos')
         ->assertSee('May 10, 1998')
         ->assertSee($patient->address)
-        ->assertSee('Patient photo placeholder')
+        ->assertSee('Barangay Alabang')
+        ->assertSee('City of Muntinlupa')
+        ->assertSee('Department of Health')
+        ->assertSee('data:image/png;base64,', false)
+        ->assertDontSee('Patient photo placeholder')
+        ->assertDontSee('photo-placeholder')
         ->assertSee('data:image/svg+xml;base64,', false)
         ->assertDontSee($patient->contact_number)
         ->assertDontSee($patient->emergency_contact);

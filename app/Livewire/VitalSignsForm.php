@@ -124,6 +124,13 @@ class VitalSignsForm extends Component
         $this->patientSearch = '';
     }
 
+    public function getCurrentQueueProperty(): ?Queue
+    {
+        Gate::authorize('queue-register');
+
+        return $this->queueId === null ? null : Queue::where('patient_id', $this->patient_id)->find($this->queueId);
+    }
+
     public function getVitalSignsQueueProperty(): Collection
     {
         Gate::authorize('queue-register');

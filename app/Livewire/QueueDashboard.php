@@ -17,12 +17,20 @@ class QueueDashboard extends Component
         $statistics = [
             'Total Patients Queued Today' => $counts->sum(),
             'Waiting Patients' => $counts->get('Waiting', 0),
+            'Patients Called' => $counts->get('Called', 0),
             'Patients Undergoing Vital Signs' => $counts->get('Vital Signs', 0),
             'Patients Ready for Consultation' => $counts->get('Ready for Consultation', 0),
             'Patients In Consultation' => $counts->get('In Consultation', 0),
             'Completed Patients' => $counts->get('Completed', 0),
         ];
 
-        return view('livewire.queue-dashboard', compact('statistics'));
+        $servingQueues = Queue::query()->with('patient')
+            ->whereDate('queue_date', now('Asia/Manila')->toDateString())
+            ->whereIn('status', ['Called', 'Vital Signs', 'In Consultation'])
+            ->orderBy('queue_number')->get();
+        $assessmentQueues = $servingQueues->whereIn('status', ['Called', 'Vital Signs'])->values();
+        $consultationQueues = $servingQueues->where('status', 'In Consultation')->values();
+
+        return view('livewire.queue-dashboard', compact('statistics', 'assessmentQueues', 'consultationQueues'));
     }
 }

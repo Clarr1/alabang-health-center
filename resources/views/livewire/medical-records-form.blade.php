@@ -1,127 +1,210 @@
-<div x-data="{}" x-on:medical-record-saved.window="window.alert(&quot;Medical record saved successfully!&quot;)" class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-    <div class="mb-8">
-        <h1 class="text-2xl font-bold text-gray-900">Doctor&#039;s Consultation</h1>
-        <p class="mt-2 text-sm text-gray-600">Select a patient from today's queue to review their vital signs and record a consultation.</p>
+<div x-data="{ queueOpen: @js(! $queueId), historyOpen: false }"
+     x-on:medical-record-saved.window="window.alert(&quot;Medical record saved successfully!&quot;); historyOpen = false"
+     x-on:queue-updated.window="queueOpen = ! $wire.queueId"
+     class="relative mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8 lg:py-8">
+    @php
+        $currentQueue = $this->currentQueue;
+        $visitVital = $this->vitalSigns->firstWhere('vital_id', (int) $vital_signs_id);
+        $latestRecord = $this->medicalRecords->first();
+    @endphp
+    <img src="{{ asset('images/barangay-alabang.png') }}" alt="" aria-hidden="true" class="pointer-events-none absolute right-4 top-5 w-[440px] max-w-[70%] rounded-full opacity-[0.035]">
+    <div class="relative mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">Consultation workspace</h1>
+            <p class="mt-2 text-sm text-muted">Document today's care. Complete the consultation only after reviewing all entries.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('queues.index') }}" wire:navigate class="patient-button bg-white text-xs">Back to Queue</a>
+            <button type="button" x-on:click="queueOpen = !queueOpen" x-bind:aria-expanded="queueOpen" aria-controls="consultation-patient-selection" class="patient-button bg-white text-xs">Consultation queue</button>
+            @if ($queueId)<span class="rounded bg-[#e9ebf0] px-2 py-1 text-[11px] font-semibold">Unsaved</span>@endif
+        </div>
     </div>
-    @if ($queueId)
-        <div class="mb-6 rounded-md bg-blue-50 p-4 text-sm text-blue-700">Consultation for this queue visit. Saving the medical record will complete the visit. <a href="{{ route('queues.index') }}" wire:navigate class="font-semibold underline">Back to Queue</a></div>
-    @endif
-    @can('queue-consult')
-        <section wire:poll.5s class="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 class="mb-4 text-lg font-semibold text-gray-900">Doctor&#039;s Consultation Queue</h2>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 text-left text-sm">
-                    <thead><tr class="text-xs uppercase text-gray-500"><th class="px-3 py-2">Queue Number</th><th class="px-3 py-2">Patient Name</th><th class="px-3 py-2">Status</th><th class="px-3 py-2">Action</th></tr></thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @forelse ($this->consultationQueue as $entry)
-                            <tr wire:key="consultation-queue-{{ $entry->queue_id }}">
-                                <td class="px-3 py-3 font-semibold">{{ $entry->queue_number }}</td>
-                                <td class="px-3 py-3">{{ $entry->patient->first_name }} {{ $entry->patient->middle_name }} {{ $entry->patient->last_name }}</td>
-                                <td class="px-3 py-3"><span class="rounded-full px-2 py-1 text-xs {{ $entry->badgeClasses() }}">{{ $entry->status }}</span></td>
-                                <td class="px-3 py-3"><button type="button" wire:click="startConsultation({{ $entry->queue_id }})" wire:loading.attr="disabled" @disabled($queueId !== null) class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">Start Consultation</button></td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="4" class="px-3 py-4 text-gray-500">No patients ready for consultation today.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            @foreach ($this->activeConsultations as $entry)
-                <div wire:key="active-consultation-{{ $entry->queue_id }}" class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md bg-blue-50 p-3 text-sm text-blue-700">
-                    <span>Queue #{{ $entry->queue_number }} · {{ $entry->patient->first_name }} {{ $entry->patient->last_name }} · In Consultation</span>
-                    @if ($queueId !== $entry->queue_id)
-                        <button type="button" wire:click="resumeConsultation({{ $entry->queue_id }})" wire:loading.attr="disabled" @disabled($queueId !== null) class="font-semibold underline disabled:opacity-50">Resume Consultation</button>
-                    @endif
-                </div>
-            @endforeach
-        </section>
-    @endcan
 
     @if (session('success'))
-        <div class="mb-6 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{{ session('success') }}</div>
+        <div role="status" class="relative mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{{ session('success') }}</div>
     @endif
-
     @if ($errors->any())
-        <div class="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div role="alert" class="relative mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
             <ul class="list-disc space-y-1 pl-5">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
         </div>
     @endif
 
-    <div class="space-y-6">
-        @if ($patient && $queueId)
-            <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 class="mb-4 text-lg font-semibold text-gray-900">Patient Details</h2>
-                <div class="rounded-md bg-gray-50 px-4 py-3 text-sm text-gray-700">
-                    <p class="font-semibold text-gray-900">{{ $patient->first_name }} {{ $patient->middle_name }} {{ $patient->last_name }}</p>
-                    <p class="mt-1">Patient #{{ $patient->patient_id }} &middot; {{ $patient->sex }} &middot; {{ $patient->birthdate }} &middot; Age {{ $patient->age }}</p>
-                    <p class="mt-1">{{ $patient->address }} &middot; {{ $patient->contact_number ?: 'No contact number' }}</p>
-                </div>
-            </section>
-
-            <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 class="mb-4 text-lg font-semibold text-gray-900">Current Visit Vital Signs</h2>
-                @if ($this->vitalSigns->isEmpty())
-                    <p class="text-sm text-gray-500">No vital signs have been recorded for this patient.</p>
-                @else
-                    <div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200 text-left text-sm"><thead><tr class="text-xs uppercase text-gray-500"><th class="px-3 py-2">Recorded</th><th class="px-3 py-2">Blood Pressure</th><th class="px-3 py-2">Temperature</th><th class="px-3 py-2">Pulse Rate</th><th class="px-3 py-2">Respiratory Rate</th><th class="px-3 py-2">Height</th><th class="px-3 py-2">Weight</th><th class="px-3 py-2">BMI</th><th class="px-3 py-2">Recorded By</th><th class="px-3 py-2">Use</th></tr></thead><tbody class="divide-y divide-gray-100">@foreach ($this->vitalSigns as $vitalSign)<tr><td class="whitespace-nowrap px-3 py-3">{{ $vitalSign->recorded_at?->timezone('Asia/Manila')->format('M j, Y g:i A') ?: 'Not recorded' }}</td><td class="px-3 py-3">{{ $vitalSign->blood_pressure ?: '—' }}</td><td class="px-3 py-3">{{ $vitalSign->temperature ?: '—' }}</td><td class="px-3 py-3">{{ $vitalSign->pulse_rate ?? '—' }}</td><td class="px-3 py-3">{{ $vitalSign->respiratory_rate ?? '—' }}</td><td class="px-3 py-3">{{ $vitalSign->height ? $vitalSign->height.' cm' : '—' }}</td><td class="px-3 py-3">{{ $vitalSign->weight ? $vitalSign->weight.' kg' : '—' }}</td><td class="px-3 py-3">{{ $vitalSign->bmi ?: '—' }}</td><td class="px-3 py-3">{{ $vitalSign->recordedBy?->name ?: 'Unknown' }}</td><td class="px-3 py-3"><button type="button" wire:click="selectVitalSign({{ $vitalSign->vital_id }})" @disabled($queueId !== null) class="text-sm font-semibold text-blue-600 hover:text-blue-500">{{ (string) $vital_signs_id === (string) $vitalSign->vital_id ? 'Selected' : 'Select' }}</button></td></tr>@endforeach</tbody></table></div>
-                @endif
-            </section>
-
-            <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 class="mb-4 text-lg font-semibold text-gray-900">Previous Medical Records</h2>
-                @forelse ($this->medicalRecords as $record)
-                    <article class="border-b border-gray-100 py-4 last:border-b-0"><div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="font-semibold text-gray-900">{{ $record->diagnosis ?: 'Not available' }}</h3><span class="text-sm text-gray-500">{{ $record->consultation_date?->format('M j, Y') ?: 'Not available' }}</span></div><button type="button" wire:click="viewMedicalRecord({{ $record->medical_record_id }})" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500">View Details</button></div><p class="mt-1 text-sm text-gray-700">{{ $record->treatment ?: 'No treatment recorded.' }}</p><p class="mt-1 text-sm text-gray-500">{{ $record->consultation_notes ?: 'No consultation notes.' }} · Handled by {{ $record->handledBy?->name ?: 'Unknown' }}</p></article>
+    <section x-cloak x-show="queueOpen" id="consultation-patient-selection" class="patient-card relative mb-5" aria-labelledby="consultation-queue-title">
+        <div wire:poll.5s>
+            <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div><h2 id="consultation-queue-title" class="text-base font-semibold">Doctor&#039;s Consultation Queue</h2><p class="mt-1 text-xs text-muted">Select a patient whose assessment is ready, or resume your consultation.</p></div>
+                <span wire:loading.delay wire:target="startConsultation,resumeConsultation" role="status" class="text-xs text-muted">Opening consultation...</span>
+            </div>
+            <div class="max-h-72 space-y-2 overflow-y-auto">
+                @forelse ($this->consultationQueue as $entry)
+                    <div wire:key="consultation-queue-{{ $entry->queue_id }}" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
+                        <div class="min-w-0"><p class="text-sm font-semibold">#{{ $entry->queue_number }} &middot; {{ $entry->patient->first_name }} {{ $entry->patient->middle_name }} {{ $entry->patient->last_name }}</p><span class="mt-1 inline-block rounded bg-brand-blue px-2 py-1 text-[11px]">{{ $entry->status }}</span></div>
+                        <button type="button" wire:click="startConsultation({{ $entry->queue_id }})" wire:loading.attr="disabled" @disabled($queueId !== null) class="patient-button bg-brand-pink text-xs disabled:cursor-not-allowed">Start Consultation</button>
+                    </div>
                 @empty
-                    <p class="text-sm text-gray-500">No previous medical records.</p>
+                    <p class="rounded-lg bg-blush px-4 py-5 text-xs text-muted">No patients ready for consultation today.</p>
                 @endforelse
-            </section>
+                @foreach ($this->activeConsultations as $entry)
+                    <div wire:key="active-consultation-{{ $entry->queue_id }}" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-blush p-3">
+                        <div class="min-w-0"><p class="text-sm font-semibold">Queue #{{ $entry->queue_number }} &middot; {{ $entry->patient->first_name }} {{ $entry->patient->last_name }}</p><span class="mt-1 inline-block rounded bg-brand-pink px-2 py-1 text-[11px]">In Consultation</span></div>
+                        @if ($queueId !== $entry->queue_id)
+                            <button type="button" wire:click="resumeConsultation({{ $entry->queue_id }})" wire:loading.attr="disabled" @disabled($queueId !== null) class="patient-button bg-white text-xs disabled:cursor-not-allowed">Resume Consultation</button>
+                        @else
+                            <span class="text-xs text-muted">Currently selected</span>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+            @if ($queueId)<p class="mt-3 text-xs text-muted">Complete the selected consultation before starting another.</p>@endif
+        </div>
+    </section>
 
-            @can('queue-consult')
-            <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 class="mb-4 text-lg font-semibold text-gray-900">Doctor&#039;s Consultation Form</h2>
-                <form wire:submit="saveMedicalRecord" wire:confirm="Save this medical record and complete the consultation?" class="space-y-5">
-                    <div>
-                        <label for="consultation_notes" class="mb-1 block text-sm font-medium text-gray-700">Chief Complaint</label>
-                        <textarea id="consultation_notes" wire:model="consultation_notes" rows="3" class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500"></textarea>
-                    </div>
-                    <div>
-                        <label for="diagnosis" class="mb-1 block text-sm font-medium text-gray-700">Diagnosis</label>
-                        <textarea id="diagnosis" wire:model="diagnosis" rows="3" class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500"></textarea>
-                    </div>
-                    <div>
-                        <label for="treatment" class="mb-1 block text-sm font-medium text-gray-700">Treatment Plan</label>
-                        <textarea id="treatment" wire:model="treatment" rows="3" class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500"></textarea>
-                    </div>
-                    <div>
-                        <label for="prescription" class="mb-1 block text-sm font-medium text-gray-700">Prescription (optional)</label>
-                        <textarea id="prescription" wire:model="prescription" rows="3" class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500"></textarea>
-                    </div>
-                    <div class="grid gap-5 sm:grid-cols-2">
-                        <div>
-                            <label for="consultation_date" class="mb-1 block text-sm font-medium text-gray-700">Consultation Date</label>
-                            <input id="consultation_date" type="date" wire:model="consultation_date" class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+    @if ($patient && $queueId)
+        <section class="patient-card relative mb-5 flex flex-wrap items-center justify-between gap-4 !py-4" aria-label="Patient Details">
+            <div class="flex min-w-0 items-center gap-3">
+                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-blue text-sm font-semibold" aria-hidden="true">{{ mb_strtoupper(mb_substr($patient->first_name, 0, 1).mb_substr($patient->last_name, 0, 1)) }}</span>
+                <div class="min-w-0">
+                    <h2 class="text-sm font-semibold">{{ trim(implode(' ', array_filter([$patient->first_name, $patient->middle_name, $patient->last_name]))) }}</h2>
+                    <p class="mt-1 text-xs leading-relaxed text-muted">Patient #{{ $patient->patient_id }} &middot; {{ $patient->sex }} &middot; {{ $patient->age }} years &middot; {{ \Illuminate\Support\Carbon::parse($patient->birthdate)->format('d M Y') }}</p>
+                    <p class="mt-1 text-[11px] leading-relaxed text-muted">{{ $patient->address }} &middot; {{ $patient->contact_number ?: 'No contact number' }}</p>
+                </div>
+            </div>
+            @if ($currentQueue)
+                <div class="text-xs sm:text-right"><p class="font-semibold">Queue {{ $currentQueue->queue_number }}</p><p class="mt-1 text-muted">{{ $currentQueue->queue_date->format('d M Y') }} &middot; {{ $currentQueue->created_at->timezone('Asia/Manila')->format('h:i A') }}</p></div>
+            @endif
+        </section>
+
+        <form aria-label="Doctor&#039;s Consultation Form" wire:submit="saveMedicalRecord" wire:confirm="Save this medical record and complete the consultation?" class="relative">
+            <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
+                <div class="min-w-0 space-y-5">
+                    <section class="patient-card" aria-labelledby="clinical-documentation-title">
+                        <h2 id="clinical-documentation-title" class="text-sm font-semibold">Clinical documentation</h2>
+                        <p class="mt-1 text-xs text-muted">{{ now('Asia/Manila')->format('d M Y') }} &middot; {{ Auth::user()->name }}</p>
+                        <div class="mt-5 space-y-4">
+                            <div>
+                                <label for="consultation_notes" class="patient-label">Chief Complaint / Interview &amp; consultation notes <span aria-hidden="true">*</span></label>
+                                <textarea id="consultation_notes" wire:model="consultation_notes" rows="4" required aria-describedby="consultation-notes-help" class="patient-input w-full"></textarea>
+                                <p id="consultation-notes-help" class="mt-1 text-[11px] text-muted">Record the complaint, interview, and consultation notes together.</p>
+                                <x-input-error :messages="$errors->get('consultation_notes')" class="mt-2" />
+                            </div>
+                            <div>
+                                <label for="diagnosis" class="patient-label">Diagnosis <span aria-hidden="true">*</span></label>
+                                <textarea id="diagnosis" wire:model="diagnosis" rows="2" required class="patient-input w-full"></textarea>
+                                <x-input-error :messages="$errors->get('diagnosis')" class="mt-2" />
+                            </div>
+                            <div>
+                                <label for="prescription" class="patient-label">Prescription (optional)</label>
+                                <textarea id="prescription" wire:model="prescription" rows="2" class="patient-input w-full"></textarea>
+                                <x-input-error :messages="$errors->get('prescription')" class="mt-2" />
+                            </div>
+                            <div>
+                                <label for="treatment" class="patient-label">Treatment Plan / Care plan <span aria-hidden="true">*</span></label>
+                                <textarea id="treatment" wire:model="treatment" rows="3" required class="patient-input w-full"></textarea>
+                                <x-input-error :messages="$errors->get('treatment')" class="mt-2" />
+                            </div>
+                            <div class="sm:max-w-xs">
+                                <label for="consultation_date" class="patient-label">Consultation Date <span aria-hidden="true">*</span></label>
+                                <input id="consultation_date" type="date" wire:model="consultation_date" required class="patient-input w-full">
+                                <x-input-error :messages="$errors->get('consultation_date')" class="mt-2" />
+                            </div>
                         </div>
-                        <div>
-                            <label for="follow_up_date" class="mb-1 block text-sm font-medium text-gray-700">Follow-up Date (optional)</label>
-                            <input id="follow_up_date" type="date" wire:model="follow_up_date" class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                    </section>
+
+                    <section class="patient-card" aria-labelledby="additional-care-title">
+                        <h2 id="additional-care-title" class="text-sm font-semibold">Additional care documentation</h2>
+                        <p id="additional-care-help" class="mt-1 text-xs leading-relaxed text-muted">Lab requests and vaccination notes are not available in this form yet.</p>
+                        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                            <div><label for="consultation-lab-request" class="patient-label">Lab request</label><input id="consultation-lab-request" type="text" disabled placeholder="Not available" aria-describedby="additional-care-help" class="patient-input w-full cursor-not-allowed bg-gray-50"></div>
+                            <div><label for="consultation-vaccination" class="patient-label">Vaccination notes</label><input id="consultation-vaccination" type="text" disabled placeholder="Not available" aria-describedby="additional-care-help" class="patient-input w-full cursor-not-allowed bg-gray-50"></div>
                         </div>
-                    </div>
-                    <div class="flex justify-end border-t border-gray-100 pt-5">
-                        <button type="submit" wire:loading.attr="disabled" wire:target="saveMedicalRecord" class="rounded-md bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">
-                            Save Medical Record and Complete Consultation
-                        </button>
-                    </div>
-                </form>
-            </section>
+                        <div x-data="{ needsFollowUp: @js(! empty($follow_up_date)) }" class="mt-5 border-t border-line pt-4">
+                            <div class="flex items-start justify-between gap-4">
+                                <div><label for="consultation-follow-up" class="text-xs font-semibold">Follow-up needed</label><p class="mt-1 text-[11px] text-muted">Schedule the patient's next review after completion.</p></div>
+                                <label class="flex cursor-pointer items-center gap-2 rounded-lg bg-brand-blue px-3 py-2 text-xs font-medium">
+                                    <input id="consultation-follow-up" type="checkbox" x-model="needsFollowUp" x-on:change="if (!needsFollowUp) $wire.set('follow_up_date', '', false)" class="rounded border-line text-ink focus:ring-brand-blue">
+                                    <span x-text="needsFollowUp ? 'Yes' : 'No'">No</span>
+                                </label>
+                            </div>
+                            <div x-cloak x-show="needsFollowUp" class="mt-4 sm:max-w-xs">
+                                <label for="follow_up_date" class="patient-label">Follow-up Date</label>
+                                <input id="follow_up_date" type="date" wire:model="follow_up_date" x-bind:required="needsFollowUp" x-bind:min="$wire.consultation_date" class="patient-input w-full">
+                            </div>
+                            <x-input-error :messages="$errors->get('follow_up_date')" class="mt-2" />
+                        </div>
+                    </section>
 
-            @endcan
-        @else
-            <p class="rounded-md border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-500">Select a patient from the queue to start consultation.</p>
-        @endif
-    </div>
+                    <section x-cloak x-show="historyOpen" x-ref="historySection" id="consultation-history" class="patient-card scroll-mt-5" aria-labelledby="previous-records-title">
+                        <h2 id="previous-records-title" class="text-sm font-semibold">Previous Medical Records</h2>
+                        <div class="mt-3 divide-y divide-line">
+                            @forelse ($this->medicalRecords as $record)
+                                <article wire:key="consultation-history-{{ $record->medical_record_id }}" class="py-4 first:pt-0 last:pb-0">
+                                    <div class="flex flex-wrap items-start justify-between gap-3">
+                                        <div class="min-w-0"><h3 class="break-words text-sm font-semibold">{{ $record->diagnosis ?: 'Not available' }}</h3><p class="mt-1 text-[11px] text-muted">{{ $record->consultation_date?->format('d M Y') ?: 'Date not available' }} &middot; {{ $record->handledBy?->name ?: 'Unknown' }}</p></div>
+                                        <button type="button" wire:click="viewMedicalRecord({{ $record->medical_record_id }})" wire:loading.attr="disabled" class="patient-button px-3 py-2 text-xs">View Details</button>
+                                    </div>
+                                    <p class="mt-2 whitespace-pre-line break-words text-xs">{{ $record->treatment ?: 'No treatment recorded.' }}</p>
+                                    <p class="mt-1 whitespace-pre-line break-words text-xs text-muted">{{ $record->consultation_notes ?: 'No consultation notes.' }}</p>
+                                </article>
+                            @empty
+                                <p class="text-xs text-muted">No previous medical records.</p>
+                            @endforelse
+                        </div>
+                    </section>
+                </div>
 
-@if ($showMedicalRecordModal && $this->selectedMedicalRecord)
-    <x-medical-record-details :record="$this->selectedMedicalRecord" />
-@endif
+                <aside class="min-w-0 space-y-5" aria-label="Visit vitals and patient history">
+                    <section class="patient-card" aria-labelledby="consultation-vitals-title">
+                        <h2 id="consultation-vitals-title" class="text-sm font-semibold">Latest vitals <span class="sr-only">Current Visit Vital Signs</span></h2>
+                        @if ($visitVital)
+                            <p class="mt-2 text-[11px] leading-relaxed text-muted">{{ $visitVital->recorded_at?->timezone('Asia/Manila')->format('d M Y, h:i A') ?: 'Time not recorded' }} &middot; {{ $visitVital->recordedBy?->name ?: 'Unknown' }}</p>
+                            <dl class="mt-4 space-y-3 text-xs">
+                                <div><dt class="inline">BP </dt><dd class="inline">@if ($visitVital->blood_pressure){{ $visitVital->blood_pressure }} mmHg@else Not recorded @endif</dd></div>
+                                <div><dt class="inline">Temperature </dt><dd class="inline">@if ($visitVital->temperature !== null){{ $visitVital->temperature }} &deg;C@else Not recorded @endif</dd></div>
+                                <div><dt class="inline">Pulse </dt><dd class="inline">@if ($visitVital->pulse_rate !== null){{ $visitVital->pulse_rate }} bpm@else Not recorded @endif</dd></div>
+                                <div><dt class="inline">Respiratory rate </dt><dd class="inline">@if ($visitVital->respiratory_rate !== null){{ $visitVital->respiratory_rate }} /min@else Not recorded @endif</dd></div>
+                                <div><dt class="inline">Height </dt><dd class="inline">@if ($visitVital->height !== null){{ $visitVital->height }} cm@else Not recorded @endif</dd></div>
+                                <div><dt class="inline">Weight </dt><dd class="inline">@if ($visitVital->weight !== null){{ $visitVital->weight }} kg@else Not recorded @endif</dd></div>
+                                <div><dt class="inline">BMI </dt><dd class="inline">{{ $visitVital->bmi ?? 'Not recorded' }}</dd></div>
+                            </dl>
+                        @else
+                            <p class="mt-3 text-xs text-muted">No vital signs have been recorded for this patient.</p>
+                        @endif
+                    </section>
+                    <section class="patient-card" aria-labelledby="relevant-history-title">
+                        <h2 id="relevant-history-title" class="text-sm font-semibold">Relevant history</h2>
+                        <p class="mt-3 text-[11px] leading-relaxed text-muted">Allergy information is not recorded in this system.</p>
+                        @if ($latestRecord)
+                            <p class="mt-4 break-words text-xs font-medium">{{ $latestRecord->consultation_date?->format('d M Y') ?: 'Date not available' }}: {{ $latestRecord->diagnosis ?: 'Diagnosis not recorded' }}</p>
+                            <p class="mt-2 line-clamp-3 break-words text-xs leading-relaxed text-muted">{{ $latestRecord->treatment ?: 'No treatment recorded.' }}</p>
+                            <button type="button" wire:click="viewMedicalRecord({{ $latestRecord->medical_record_id }})" class="patient-button mt-4 px-3 py-2 text-xs">View Details</button>
+                        @else
+                            <p class="mt-4 text-xs text-muted">No previous medical records.</p>
+                        @endif
+                        <button type="button" x-on:click="historyOpen = !historyOpen; if (historyOpen) $nextTick(() => $refs.historySection.scrollIntoView({ block: 'nearest' }))" x-bind:aria-expanded="historyOpen" aria-controls="consultation-history" class="patient-button mt-3 px-3 py-2 text-xs">Open full history</button>
+                    </section>
+                    <section class="flex gap-3 rounded-lg border border-line bg-blush/80 px-4 py-4 text-xs">
+                        <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></svg>
+                        <div><h3 class="font-semibold">Review before finalizing</h3><p class="mt-2 text-[11px] leading-relaxed text-muted">Completing saves this medical record and updates the queue to Completed. Confirm all entries before saving.</p></div>
+                    </section>
+                </aside>
+            </div>
 
+            <footer class="mt-5 flex flex-wrap items-center justify-between gap-4">
+                <p id="consultation-draft-help" class="max-w-md text-[11px] leading-relaxed text-muted">Completing this consultation updates the queue to Completed. Draft saving is not available yet.</p>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" disabled aria-describedby="consultation-draft-help" class="patient-button cursor-not-allowed bg-white text-xs">Save draft</button>
+                    <button type="submit" wire:loading.attr="disabled" wire:target="saveMedicalRecord" aria-label="Save Medical Record and Complete Consultation" class="patient-button border-transparent bg-brand-pink text-xs hover:bg-[#f598ba] disabled:cursor-not-allowed">
+                        <span wire:loading.remove wire:target="saveMedicalRecord">Save &amp; complete consultation</span>
+                        <span wire:loading wire:target="saveMedicalRecord">Saving consultation...</span>
+                    </button>
+                </div>
+            </footer>
+        </form>
+    @else
+        <section class="patient-card relative py-12 text-center"><h2 class="text-sm font-semibold">No consultation selected</h2><p class="mt-2 text-xs text-muted">Select a patient from the queue to start consultation.</p></section>
+    @endif
+
+    @if ($showMedicalRecordModal && $this->selectedMedicalRecord)
+        <x-medical-record-details :record="$this->selectedMedicalRecord" />
+    @endif
 </div>

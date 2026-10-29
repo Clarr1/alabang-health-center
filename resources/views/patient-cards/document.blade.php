@@ -3,27 +3,30 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Patient Identification Card — {{ $patient->patient_id }}</title>
+    <title>Patient Identification Card &mdash; {{ $patient->patient_id }}</title>
     <style>
         @page { size: 85.60mm 53.98mm; margin: 0; }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; }
-        body { font-family: "DejaVu Sans", sans-serif; color: #172554; background: white; }
-        .health-card { position: absolute; left: 0; top: 0; width: 85.60mm; height: 53.98mm; overflow: hidden; background: white; }
-        .card-header { height: 10mm; padding: 1.2mm 3mm; background: #1e40af; color: white; }
-        .center-name { font-size: 11pt; line-height: 1.3; font-weight: bold; }
-        .card-subtitle { font-size: 6pt; line-height: 1.4; letter-spacing: 0.8pt; }
-        .card-information { position: absolute; left: 3mm; top: 12mm; width: 54mm; }
-        .field { margin-bottom: 1.3mm; }
-        .label { font-size: 5.5pt; color: #475569; line-height: 1.2; }
-        .value { font-size: 7pt; line-height: 1.25; overflow-wrap: anywhere; word-wrap: break-word; }
-        .patient-name { font-weight: bold; font-size: {{ mb_strlen($fullName) > 55 ? '6' : '8' }}pt; }
-        .demographics { width: 100%; border-collapse: collapse; margin-bottom: 1.3mm; }
-        .demographics td { padding: 0; width: 50%; vertical-align: top; }
-        .address { font-size: {{ mb_strlen($patient->address ?? '') > 140 ? '5' : '6' }}pt; line-height: 1.2; }
-        .photo-placeholder { position: absolute; right: 3mm; top: 12mm; width: 19mm; height: 19mm; border: 0.3mm solid #94a3b8; background: #f8fafc; }
-        .qr-code { position: absolute; right: 3mm; top: 32mm; width: 19mm; height: 19mm; }
-        .card-footer { position: absolute; left: 3mm; bottom: 1.3mm; font-size: 4.5pt; color: #64748b; }
+        body { font-family: "DejaVu Sans", sans-serif; color: #293952; background: white; }
+        .health-card { position: absolute; left: 0; top: 0; width: 85.60mm; height: 53.98mm; overflow: hidden; background: white; border: 0.3mm solid #a8dcf0; border-radius: 2mm; }
+        .card-header { position: absolute; top: 3mm; left: 3mm; right: 3mm; height: 10mm; border-bottom: 0.2mm solid #e8eaf0; }
+        .brand-logo { position: absolute; top: 0; left: 0; width: 6.5mm; height: auto; }
+        .brand-copy { position: absolute; top: 0.4mm; left: 8mm; }
+        .center-name { font-size: 6.5pt; line-height: 1.4; font-weight: bold; }
+        .card-subtitle { font-size: 4.5pt; line-height: 1.5; color: #727d91; }
+        .city-logo, .health-logo { position: absolute; top: 0.3mm; width: 5.5mm; height: auto; }
+        .city-logo { right: 8mm; }
+        .health-logo { right: 0; }
+        .card-information { position: absolute; left: 3mm; top: 16mm; width: 53mm; }
+        .patient-name { margin: 0 0 1.5mm; font-weight: bold; font-size: {{ mb_strlen($fullName) > 55 ? '6.5' : '8.5' }}pt; line-height: 1.3; overflow-wrap: anywhere; word-wrap: break-word; }
+        .patient-id { margin-bottom: 2mm; padding-bottom: 1.5mm; border-bottom: 0.2mm solid #e8eaf0; font-size: 7pt; font-weight: bold; }
+        .detail { margin-bottom: 1mm; font-size: 6pt; line-height: 1.4; }
+        .address { color: #727d91; font-size: {{ mb_strlen($patient->address ?? '') > 140 ? '4.5' : '5.5' }}pt; line-height: 1.3; overflow-wrap: anywhere; word-wrap: break-word; }
+        .qr-panel { position: absolute; right: 3mm; top: 19mm; width: 23mm; text-align: center; }
+        .qr-code { display: block; width: 23mm; height: 23mm; }
+        .qr-caption { font-size: 4pt; color: #727d91; line-height: 1.3; }
+        .card-footer { position: absolute; left: 3mm; right: 3mm; bottom: 2.5mm; font-size: 4pt; line-height: 1.4; color: #727d91; }
         @media print {
             html, body { width: 85.60mm; height: 53.98mm; }
             * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
@@ -33,32 +36,20 @@
 <body>
     <article class="health-card" aria-label="Patient identification card">
         <header class="card-header">
-            <div class="center-name">Alabang Health Center</div>
-            <div class="card-subtitle">PATIENT IDENTIFICATION CARD</div>
+            <img class="brand-logo" src="{{ $logos['barangay-alabang'] }}" alt="Barangay Alabang">
+            <div class="brand-copy"><div class="center-name">Alabang Health Center</div><div class="card-subtitle">City of Muntinlupa &middot; Healthcare ID</div></div>
+            <img class="city-logo" src="{{ $logos['city-of-muntinlupa'] }}" alt="City of Muntinlupa">
+            <img class="health-logo" src="{{ $logos['department-of-health'] }}" alt="Department of Health">
         </header>
         <div class="card-information">
-            <div class="field">
-                <div class="label">PATIENT ID</div>
-                <div class="value">{{ $patient->patient_id }}</div>
-            </div>
-            <div class="field">
-                <div class="label">FULL NAME</div>
-                <div class="value patient-name">{{ $fullName ?: 'Not available' }}</div>
-            </div>
-            <table class="demographics">
-                <tr>
-                    <td><div class="label">DATE OF BIRTH</div><div class="value">{{ $birthdate }}</div></td>
-                    <td><div class="label">SEX</div><div class="value">{{ $patient->sex ?: 'Not available' }}</div></td>
-                </tr>
-            </table>
-            <div class="field">
-                <div class="label">ADDRESS</div>
-                <div class="value address">{{ $patient->address ?: 'Not available' }}</div>
-            </div>
+            <h1 class="patient-name">{{ $fullName ?: 'Not available' }}</h1>
+            <div class="patient-id">Patient ID: {{ $patient->patient_id }}</div>
+            <div class="detail">Birthdate: {{ $birthdate }}</div>
+            <div class="detail">Sex: {{ $patient->sex ?: 'Not available' }}</div>
+            <div class="address">{{ $patient->address ?: 'Not available' }}</div>
         </div>
-        <div class="photo-placeholder" role="img" aria-label="Patient photo placeholder"></div>
-        <img class="qr-code" src="{{ $qrCode }}" alt="QR code for patient {{ $patient->patient_id }}">
-        <footer class="card-footer">Present this card when visiting the health center.</footer>
+        <div class="qr-panel"><img class="qr-code" src="{{ $qrCode }}" alt="QR code for patient {{ $patient->patient_id }}"><div class="qr-caption">Patient ID QR</div></div>
+        <footer class="card-footer">Present this card when visiting the health center. QR contains patient ID only.</footer>
     </article>
 </body>
 </html>

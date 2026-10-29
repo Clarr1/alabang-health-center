@@ -8,6 +8,7 @@ use App\Models\PatientInformation;
 use App\Models\Queue;
 use App\Models\User;
 use App\Models\VitalSign;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Livewire;
 
 function savedRecordForBrowsing(User $doctor, ?PatientInformation $patient = null, string $date = '2026-10-14'): MedicalRecord
@@ -105,7 +106,7 @@ it('opens each patient with complete consultation history and linked visit vital
 
     $response = $this->get(route('medical-records.show', ['record' => $patient->patient_id]))
         ->assertOk()->assertSeeLivewire(MedicalRecordDetails::class)
-        ->assertSeeInOrder(['Patient Information', 'Consultation History', 'Consultation Date', 'Attending Doctor', 'Chief Complaint', 'Diagnosis', 'Actions'])
+        ->assertSeeInOrder(['Demographic overview', 'Patient Information', 'Relevant history', 'Latest vital signs', 'Medical history', 'Prescription:'])
         ->assertSee('View All Details')->assertSee('Doctor\'s Consultation')->assertSee('Vital Signs')
         ->assertSee('RecordedMiddle')->assertSee('09189998888')->assertSee($patient->address)
         ->assertSee($patient->birthdate)->assertSee($patient->registration_date)->assertSee($patient->status)
@@ -117,7 +118,7 @@ it('opens each patient with complete consultation history and linked visit vital
         ->assertDontSee('Other patient diagnosis')
         ->assertDontSee('wire:model', false)->assertDontSee('wire:submit', false);
     expect(substr_count($response->getContent(), 'View All Details'))->toBe(2)
-        ->and(substr_count($response->getContent(), 'open-consultation-modal'))->toBe(4)
+        ->and(substr_count($response->getContent(), 'x-on:open-consultation-modal.window'))->toBe(2)
         ->and($response->getContent())->toContain('consultation-modal-title-'.$record->medical_record_id)
         ->and($response->getContent())->toContain('consultation-modal-title-'.$laterVisit->medical_record_id);
 });
@@ -128,7 +129,7 @@ it('displays consistent placeholders for optional patient vital sign and consult
     $record = savedRecordForBrowsing($doctor, $patient);
     $record->update(['prescription' => null, 'follow_up_date' => null, 'treatment' => ' ', 'consultation_notes' => null]);
     $record->vitalSign->update(['blood_pressure' => null, 'recorded_at' => null, 'temperature' => null, 'pulse_rate' => 0]);
-    $response = $this->actingAs($doctor)->get(route('medical-records.show', $record))
+    $response = $this->actingAs($doctor)->get(route('medical-records.show', ['record' => $record->patient_id]))
         ->assertOk()->assertSee('Not provided.')->assertSee('0 bpm')
         ->assertDontSee('Not available')->assertDontSee('Not prescribed')->assertDontSee('Not scheduled');
     expect(substr_count($response->getContent(), 'Not provided.'))->toBeGreaterThanOrEqual(12);
@@ -156,20 +157,24 @@ it('preserves search date filters and pagination when returning from a record', 
 it('authorizes direct details access for existing browsing roles', function (string $role) {
     $user = User::factory()->create(['role' => $role]);
     $record = savedRecordForBrowsing($user);
-    $this->actingAs($user)->get(route('medical-records.show', $record))->assertOk();
+    $this->actingAs($user)->get(route('medical-records.show', ['record' => $record->patient_id]))->assertOk();
 })->with(['Admin', 'Doctor', 'Local Health Unit Staff']);
 
 it('rejects unauthorized details access and returns not found for missing records', function () {
     $doctor = User::factory()->create(['role' => 'Doctor']);
     $record = savedRecordForBrowsing($doctor);
-    $this->get(route('medical-records.show', $record))->assertRedirect(route('login'));
-    $unauthorized = User::factory()->create(['role' => 'Unassigned']);
-    $this->actingAs($unauthorized)->get(route('medical-records.show', $record))->assertForbidden();
-    Livewire::actingAs($unauthorized)->test(MedicalRecordDetails::class, ['record' => $record])->assertForbidden();
+    $this->get(route('medical-records.show', ['record' => $record->patient_id]))->assertRedirect(route('login'));
+    $unauthorized = User::factory()->create();
+    $unauthorized->role = 'Unassigned';
+    $this->actingAs($unauthorized)->get(route('medical-records.show', ['record' => $record->patient_id]))->assertForbidden();
+    Livewire::actingAs($unauthorized)->test(MedicalRecordDetails::class, ['record' => $record->patient])->assertForbidden();
     $this->actingAs($doctor)->get(route('medical-records.show', ['record' => 999999]))->assertNotFound();
-    $details = Livewire::actingAs($doctor)->test(MedicalRecordDetails::class, ['record' => $record]);
+    $patient = $record->patient;
+    $details = Livewire::actingAs($doctor)->test(MedicalRecordDetails::class, ['record' => $patient]);
     $record->delete();
-    $details->call('$refresh')->assertNotFound();
+    $patient->delete();
+    $this->get(route('medical-records.show', ['record' => $patient->patient_id]))->assertNotFound();
+    expect(fn () => $details->call('$refresh'))->toThrow(ModelNotFoundException::class);
 });
 it('separates browsing and consultation routes with correct authorization and active sidebar links', function (string $role) {
     $user = User::factory()->create(['role' => $role]);
@@ -225,6 +230,29 @@ it('completes consultation on Doctor&#039;s Consultation and reviews the saved v
     Livewire::actingAs($doctor)->test(MedicalRecordsTable::class)
         ->set('search', (string) $queue->patient_id)->assertSee($queue->patient->first_name)
         ->assertSee('View Details');
-    $this->actingAs($doctor)->get(route('medical-records.show', $record))
+    $this->actingAs($doctor)->get(route('medical-records.show', ['record' => $record->patient_id]))
         ->assertOk()->assertSee('Persistent sneezing')->assertSee('Seasonal allergies')->assertSee('Rest and hydration')->assertSee('120/80')->assertSee($doctor->name);
 })->with(['Doctor', 'Admin']);
+
+it('includes standalone measurements in latest vitals and exposes recorded follow-ups without changing visits', function () {
+    $doctor = User::factory()->create(['role' => 'Doctor']);
+    $record = savedRecordForBrowsing($doctor);
+    $measurement = $record->patient->vitalSigns()->create([
+        'recorded_by' => $doctor->user_id,
+        'blood_pressure' => '130/85',
+        'pulse_rate' => 0,
+        'recorded_at' => now()->addHour(),
+    ]);
+
+    $this->actingAs($doctor)->get(route('medical-records.show', ['record' => $record->patient_id]))
+        ->assertOk()->assertSee('Latest vital signs')->assertSee('130/85 mmHg')->assertSee('0 bpm')
+        ->assertSee('Recorded follow-ups')->assertSee('21 Oct 2026')
+        ->assertSee('id="record-visits-tab"', false)->assertSee('id="record-vitals-tab"', false)
+        ->assertSee('id="record-followups-tab"', false)->assertSee('View original entry')
+        ->assertSee('Addendum and correction workflows are not available yet.')
+        ->assertDontSee('wire:model', false)->assertDontSee('wire:submit', false);
+
+    expect(MedicalRecord::count())->toBe(1)
+        ->and($record->fresh()->diagnosis)->toBe('Seasonal allergies')
+        ->and($measurement->fresh()->queue_id)->toBeNull();
+});

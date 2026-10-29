@@ -173,3 +173,27 @@ it('prevents changing the selected patient identifier from the browser', functio
     expect(fn () => $edit->set('patientId', $otherPatient->patient_id))
         ->toThrow(CannotUpdateLockedPropertyException::class);
 });
+
+it('reviews unsaved changes without writing and excludes the selected patient from duplicate matches', function () {
+    $patient = PatientInformation::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos', 'birthdate' => '1992-05-14']);
+    $edit = Livewire::actingAs(User::factory()->create())->test(EditPatient::class, ['patient' => $patient])
+        ->assertSee('Duplicate check: no other matching record found');
+    expect($edit->get('duplicatePatients'))->toHaveCount(0);
+    $other = PatientInformation::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos', 'birthdate' => '1992-05-14']);
+    $edit->call('$refresh')->assertSee('Possible duplicate patient records');
+    expect($edit->get('duplicatePatients')->modelKeys())->toBe([$other->patient_id]);
+    $edit->set('address', 'Unsaved review address')->set('status', 'Inactive')
+        ->call('reviewDetails')->assertHasNoErrors()->assertSet('showReview', true)
+        ->assertSee('Unsaved review address')->assertSee('Inactive');
+    expect($patient->fresh()->status)->toBe('Active')->and($patient->fresh()->address)->not->toBe('Unsaved review address');
+    $edit->call('returnToDetails')->assertSet('showReview', false)->assertSet('address', 'Unsaved review address');
+});
+
+it('recalculates age when an edited birthdate changes without writing until save', function () {
+    $this->travelTo(new DateTimeImmutable('2026-10-28 16:15:00 UTC'));
+    $patient = PatientInformation::factory()->create(['birthdate' => '1990-01-01', 'age' => 36]);
+
+    Livewire::actingAs(User::factory()->create())->test(EditPatient::class, ['patient' => $patient])
+        ->set('birthdate', '2000-10-30')->assertSet('age', 25);
+    expect($patient->fresh()->birthdate)->toBe('1990-01-01')->and($patient->fresh()->age)->toBe(36);
+});

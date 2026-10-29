@@ -68,8 +68,9 @@ it('completes consultation with this visits vital signs doctor and optional fiel
     expect(MedicalRecord::count())->toBe(1)->and($component->get('consultationQueue'))->toHaveCount(0);
     Livewire::actingAs($doctor)->test(QueueDisplay::class)->assertViewHas('stages', fn (array $stages): bool => $stages['consultation']['serving'] === []);
     Livewire::actingAs($doctor)->test(MedicalRecordsTable::class, ['patient_id' => $queue->patient_id])
-        ->assertSee('View Details')->call('viewMedicalRecord', $record->medical_record_id)
-        ->assertSet('showMedicalRecordModal', true)->assertSee('Sneezing')->assertSee('120/80');
+        ->assertSee('View Details');
+    $this->get(route('medical-records.show', ['record' => $queue->patient_id]))
+        ->assertOk()->assertSee('Sneezing')->assertSee('120/80')->assertSee('View original entry');
 })->with([
     'optional fields empty' => [null, null],
     'optional fields provided' => ['2099-01-01', 'Cetirizine'],

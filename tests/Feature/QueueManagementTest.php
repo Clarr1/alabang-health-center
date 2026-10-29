@@ -183,3 +183,51 @@ it('requires authentication and denies queue clinical routes to the wrong role',
     $this->actingAs(User::factory()->create())
         ->get(route('queues.consultation', ['queue_id' => $queue->queue_id, 'patient_id' => $queue->patient_id]))->assertForbidden();
 });
+
+it('shows live assessment and consultation summaries for the Manila day', function () {
+    $this->travelTo(new DateTimeImmutable('2026-10-28 16:30:00 UTC'));
+    $staff = User::factory()->create();
+    $assessment = Queue::factory()->create(['queue_number' => 14, 'status' => 'Called']);
+    Queue::factory()->create(['queue_number' => 15, 'status' => 'Vital Signs']);
+    $consultation = Queue::factory()->create(['queue_number' => 16, 'status' => 'In Consultation']);
+    Queue::factory()->create(['queue_number' => 17, 'status' => 'Ready for Consultation']);
+    Queue::factory()->create(['queue_number' => 18, 'status' => 'Waiting']);
+    Queue::factory()->create(['queue_number' => 19, 'status' => 'Completed']);
+    DB::table('queue_days')->insert(['queue_date' => '2026-10-28', 'last_number' => 0]);
+    Queue::factory()->create(['queue_date' => '2026-10-28', 'queue_number' => 20, 'status' => 'Called']);
+
+    $dashboard = Livewire::actingAs($staff)->test(QueueDashboard::class)
+        ->assertSee($assessment->patient->first_name)
+        ->assertSee($consultation->patient->first_name)
+        ->assertSee('2 patients called or in assessment today');
+
+    expect($dashboard->viewData('assessmentQueues')->pluck('queue_number')->all())->toBe([14, 15])
+        ->and($dashboard->viewData('consultationQueues')->pluck('queue_number')->all())->toBe([16])
+        ->and($dashboard->viewData('statistics')['Total Patients Queued Today'])->toBe(6)
+        ->and($dashboard->viewData('statistics')['Patients Called'])->toBe(1);
+
+    $consultation->update(['status' => 'Completed']);
+    $dashboard->call('$refresh')->assertSee('Active consultations will appear here.');
+    expect($dashboard->viewData('consultationQueues'))->toHaveCount(0)
+        ->and($dashboard->viewData('statistics')['Completed Patients'])->toBe(2);
+});
+
+it('links a completed queue visit to its existing medical record', function () {
+    $staff = User::factory()->create();
+    PatientInformation::factory()->create();
+    $queue = Queue::factory()->create(['status' => 'Completed']);
+    $vitalSign = VitalSign::create(['patient_id' => $queue->patient_id, 'queue_id' => $queue->queue_id, 'recorded_by' => $staff->user_id]);
+    $record = $queue->medicalRecord()->create([
+        'patient_id' => $queue->patient_id,
+        'vital_signs_id' => $vitalSign->vital_id,
+        'handled_by' => $staff->user_id,
+        'diagnosis' => 'Routine consultation',
+        'consultation_date' => now('Asia/Manila')->toDateString(),
+        'created_at' => now('Asia/Manila'),
+    ]);
+
+    Livewire::actingAs($staff)->test(QueueManagement::class)
+        ->assertSee('View visit')
+        ->assertSee('href="'.route('medical-records.show', ['record' => $queue->patient_id]).'"', false)
+        ->assertSee('Visit closed');
+});

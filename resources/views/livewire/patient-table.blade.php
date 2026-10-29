@@ -1,71 +1,138 @@
-<div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-    <div class="mb-8 flex flex-wrap items-start justify-between gap-4">
+<div class="patient-page relative isolate {{ $showPatientModal || $showCardModal ? 'z-50' : '' }} mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8 lg:py-8">
+    <img src="{{ asset('images/barangay-alabang.png') }}" alt="" aria-hidden="true" class="pointer-events-none absolute right-4 top-5 -z-10 w-[440px] rounded-full max-w-[70%] opacity-[0.035]">
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Patient Table</h1>
-            <p class="mt-2 text-sm text-gray-600">Search and review registered patient information.</p>
+            <h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">Patients &amp; registration</h1>
+            <p class="mt-2 text-sm text-muted">Find an existing patient before creating a new registration.</p>
         </div>
-        <a href="{{ route('patient.information-form') }}" wire:navigate class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Register Patient</a>
+        <a href="{{ route('patient.information-form') }}" wire:navigate class="patient-button border-transparent bg-brand-pink hover:bg-[#f598ba]">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M19 10v8m-4-4h8"/></svg>
+            Register patient
+        </a>
     </div>
 
-    <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div class="w-full sm:max-w-md">
-                <label for="patient-table-search" class="mb-1 block text-sm font-medium text-gray-700">Search patients</label>
-                <input id="patient-table-search" type="search" wire:model.live.debounce.300ms="search" placeholder="Patient ID, name, or contact number" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+    <section class="patient-card mb-6" aria-label="Patient search and filters">
+        <form wire:submit="$refresh">
+            <label for="patient-table-search" class="patient-label">Search by name or unique patient ID</label>
+            <div class="flex flex-wrap gap-3">
+                <input id="patient-table-search" type="search" wire:model.live.debounce.300ms="search" placeholder="Search patients…" class="patient-input min-w-0 flex-1 basis-48">
+                <button type="submit" class="patient-button border-transparent bg-brand-blue hover:bg-[#90cfe9]" wire:loading.attr="disabled">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg>
+                    Search
+                </button>
+                <button type="button" disabled aria-describedby="qr-unavailable" class="patient-button cursor-not-allowed bg-white text-muted">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 8V4a1 1 0 0 1 1-1h4m8 0h4a1 1 0 0 1 1 1v4M3 16v4a1 1 0 0 0 1 1h4m8 0h4a1 1 0 0 0 1-1v-4M7 12h10"/></svg>
+                    Scan QR
+                </button>
             </div>
-            <p class="text-sm text-gray-500">{{ $this->patients->total() }} {{ $this->patients->total() === 1 ? 'patient' : 'patients' }}</p>
-        </div>
+            <div class="mt-4 grid gap-4 sm:grid-cols-3">
+                <div>
+                    <label for="patient-record-status" class="patient-label">Record status</label>
+                    <select id="patient-record-status" wire:model.live="recordStatus" class="patient-input w-full">
+                        <option value="">All records</option>
+                        @foreach ($this->recordStatuses as $status)
+                            <option value="{{ $status }}">{{ $status }} records</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="patient-sex" class="patient-label">Sex</label>
+                    <select id="patient-sex" wire:model.live="sex" class="patient-input w-full">
+                        <option value="">All</option>
+                        <option value="Female">Female</option>
+                        <option value="Male">Male</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="patient-last-visit" class="patient-label">Last visit</label>
+                    <select id="patient-last-visit" wire:model.live="lastVisit" class="patient-input w-full">
+                        <option value="">Any date</option>
+                        <option value="today">Today</option>
+                        <option value="week">Last 7 days</option>
+                        <option value="month">Last 30 days</option>
+                        <option value="never">No visits yet</option>
+                    </select>
+                </div>
+            </div>
+            <p id="qr-unavailable" class="mt-3 text-xs text-muted">QR scanning is not available yet. Search using the ID printed on the patient card.</p>
+        </form>
+    </section>
 
-        @if ($this->patients->isEmpty())
-            <p class="rounded-md border border-dashed border-gray-300 px-4 py-10 text-center text-sm text-gray-500">No patients found.</p>
-        @else
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 text-left text-sm">
-                    <thead>
-                        <tr class="text-xs uppercase text-gray-500">
-                            <th class="px-3 py-3">Patient ID</th>
-                            <th class="px-3 py-3">First Name</th>
-                            <th class="px-3 py-3">Last Name</th>
-                            <th class="px-3 py-3">Middle Name</th>
-                            <th class="px-3 py-3">Sex</th>
-                            <th class="px-3 py-3">Age</th>
-                            <th class="px-3 py-3">Contact Number</th>
-                            <th class="px-3 py-3">Status</th>
-                            <th class="px-3 py-3">Action</th>
+    <section class="patient-card" aria-labelledby="patient-directory-title">
+        <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h2 id="patient-directory-title" class="text-base font-semibold">Patient directory</h2>
+                <p class="mt-1 text-xs text-muted">{{ number_format($this->activePatientCount) }} active patient records · Sorted by latest visit</p>
+            </div>
+            <span wire:loading.delay role="status" class="text-xs text-muted">Loading patients…</span>
+        </div>
+        <div wire:loading.class="opacity-50" wire:target="search,recordStatus,sex,lastVisit,resetFilters,gotoPage,nextPage,previousPage">
+            <div class="overflow-x-auto rounded-t-md" tabindex="0" role="region" aria-label="Patient directory table, scroll horizontally for all columns">
+                <table class="w-full min-w-[850px] text-left text-xs">
+                    <thead class="bg-blush text-[11px] font-medium">
+                        <tr>
+                            <th scope="col" class="px-3 py-3 font-semibold">Patient / Unique ID</th>
+                            <th scope="col" class="px-3 py-3 font-semibold">Age / Sex</th>
+                            <th scope="col" class="px-3 py-3 font-semibold" >Barangay / Address</th>
+                            <th scope="col" class="px-3 py-3 font-semibold">Last visit</th>
+                            <th scope="col" class="px-3 py-3 font-semibold">Status</th>
+                            <th scope="col" class="px-3 py-3 font-semibold">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @foreach ($this->patients as $patient)
-                            <tr wire:key="patient-{{ $patient->patient_id }}">
-                                <td class="whitespace-nowrap px-3 py-3 text-gray-700">{{ $patient->patient_id }}</td>
-                                <td class="px-3 py-3 font-medium text-gray-900">{{ $patient->first_name ?: 'Not available' }}</td>
-                                <td class="px-3 py-3 font-medium text-gray-900">{{ $patient->last_name ?: 'Not available' }}</td>
-                                <td class="px-3 py-3 text-gray-700">{{ $patient->middle_name ?: 'Not available' }}</td>
-                                <td class="px-3 py-3 text-gray-700">{{ $patient->sex ?: 'Not available' }}</td>
-                                <td class="px-3 py-3 text-gray-700">{{ $patient->age ?? 'Not available' }}</td>
-                                <td class="px-3 py-3 text-gray-700">{{ $patient->contact_number ?: 'Not available' }}</td>
-                                <td class="px-3 py-3 text-gray-700">{{ $patient->status ?: 'Not available' }}</td>
+                    <tbody class="divide-y divide-line border-b border-line">
+                        @forelse ($this->patients as $patient)
+                            <tr wire:key="patient-{{ $patient->patient_id }}" class="transition-colors hover:bg-blush/60">
+                                <td class="px-3 py-4">
+                                    <span class="block font-semibold">{{ trim(implode(' ', array_filter([$patient->first_name, $patient->middle_name, $patient->last_name]))) }}</span>
+                                    <span class="mt-1 block text-[11px] text-muted">{{ $patient->patient_id }}</span>
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4">{{ $patient->age ?? '—' }} · {{ $patient->sex ?: 'Not available' }}</td>
+                                <td class="max-w-[180px] px-3 py-4"><span class="line-clamp-2" title="{{ $patient->address }}">{{ $patient->address ?: 'Not available' }}</span></td>
+                                <td class="whitespace-nowrap px-3 py-4">{{ $patient->last_visit_at ? \Illuminate\Support\Carbon::parse($patient->last_visit_at, 'Asia/Manila')->format('d M Y') : 'No visits yet' }}</td>
+                                <td class="px-3 py-4"><span class="inline-block rounded bg-[#e9ebf0] px-2 py-1 text-[11px] font-medium">{{ $patient->status ?: 'Not available' }}</span></td>
                                 <td class="px-3 py-3">
                                     <div class="flex items-center gap-2 whitespace-nowrap">
-                                        <button type="button" wire:click="viewPatient({{ $patient->patient_id }})" class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500">View</button>
+                                        <button type="button" wire:click="viewPatient({{ $patient->patient_id }})" wire:loading.attr="disabled" class="patient-button px-3 py-2 text-xs">Open record</button>
                                         @can('queue-register')
-                                            <a href="{{ route('patients.edit', $patient) }}" wire:navigate class="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Edit</a>
+                                            <a href="{{ route('patients.edit', $patient) }}" wire:navigate class="rounded px-1 py-2 text-xs font-medium hover:text-pink-700 focus-visible:outline-pink-500">Edit</a>
                                         @endcan
-                                        <button type="button" wire:click="generateIdCard({{ $patient->patient_id }})" wire:loading.attr="disabled" wire:target="generateIdCard" class="inline-flex items-center justify-center rounded-md border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50">Generate ID Card</button>
+                                        <button type="button" wire:click="generateIdCard({{ $patient->patient_id }})" wire:loading.attr="disabled" wire:target="generateIdCard" class="rounded px-1 py-2 text-xs font-medium text-muted hover:text-ink disabled:opacity-50">Generate ID Card</button>
                                     </div>
                                 </td>
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr><td colspan="6" class="px-4 py-12 text-center">
+                                <p class="text-sm font-semibold">No patients found.</p>
+                                <p class="mt-2 text-xs text-muted">Try another name or patient ID, or adjust the filters.</p>
+                                @if ($search !== '' || $recordStatus !== '' || $sex !== '' || $lastVisit !== '')
+                                    <button type="button" wire:click="resetFilters" class="patient-button mt-4 text-xs">Clear search and filters</button>
+                                @endif
+                            </td></tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
-
-            <div class="mt-5">{{ $this->patients->links() }}</div>
-        @endif
+            <nav class="mt-4 flex flex-wrap items-center justify-between gap-3" aria-label="Patient pagination">
+                <p class="text-xs text-muted">Showing {{ $this->patients->firstItem() ?? 0 }}–{{ $this->patients->lastItem() ?? 0 }} of {{ number_format($this->patients->total()) }} patients</p>
+                <div class="flex items-center gap-2">
+                    <button type="button" wire:click="previousPage" wire:loading.attr="disabled" @disabled($this->patients->onFirstPage()) class="patient-button px-3 py-2 text-xs disabled:cursor-not-allowed disabled:bg-[#f1f3f7]">Previous</button>
+                    @foreach ($this->patients->getUrlRange(max(1, $this->patients->currentPage() - 1), min($this->patients->lastPage(), $this->patients->currentPage() + 1)) as $page => $url)
+                        <button type="button" wire:key="patient-page-{{ $page }}" wire:click="gotoPage({{ $page }})" wire:loading.attr="disabled" aria-label="Go to page {{ $page }}"
+                                @if ($page === $this->patients->currentPage()) aria-current="page" @endif
+                                @class(['patient-button px-3 py-2 text-xs', 'border-brand-blue bg-brand-blue' => $page === $this->patients->currentPage()])>{{ $page }}</button>
+                    @endforeach
+                    <button type="button" wire:click="nextPage" wire:loading.attr="disabled" @disabled(! $this->patients->hasMorePages()) class="patient-button px-3 py-2 text-xs disabled:cursor-not-allowed disabled:bg-[#f1f3f7]">Next</button>
+                </div>
+            </nav>
+        </div>
     </section>
+    <aside class="mt-6 flex gap-3 rounded-lg border border-line bg-blush/70 px-4 py-4 text-xs" aria-label="Identity check">
+        <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></svg>
+        <div><p class="font-medium">Identity check</p><p class="mt-1 leading-relaxed text-muted">Confirm the patient's full name and birthdate before opening or updating a record. QR identification does not display clinical information.</p></div>
+    </aside>
 
     @if ($showPatientModal && $this->selectedPatient)
-        <div class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="patient-modal-title">
+        <div x-data x-init="$nextTick(() => $refs.patientClose.focus())" x-trap.inert.noscroll="true" x-on:keydown.escape.window="$wire.closePatientModal()" class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="patient-modal-title">
             <div class="flex min-h-screen items-center justify-center bg-gray-900/50 px-4 py-8">
                 <div class="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl">
                     <div class="flex items-start justify-between gap-4 border-b border-gray-200 pb-4">
@@ -73,7 +140,7 @@
                             <h2 id="patient-modal-title" class="text-lg font-semibold text-gray-900">Patient Details</h2>
                             <p class="mt-1 text-sm text-gray-500">Patient #{{ $this->selectedPatient->patient_id }}</p>
                         </div>
-                        <button type="button" wire:click="closePatientModal" class="rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Close</button>
+                        <button x-ref="patientClose" type="button" wire:click="closePatientModal" class="rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Close</button>
                     </div>
 
                     <div class="mt-5 grid gap-6 md:grid-cols-2">

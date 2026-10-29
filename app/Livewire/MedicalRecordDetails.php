@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\PatientInformation;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -32,11 +33,19 @@ class MedicalRecordDetails extends Component
     {
         Gate::authorize('queue-view');
 
+        $patient = PatientInformation::with([
+            'medicalRecords' => function (HasMany $records): void {
+                $records->with(['handledBy', 'vitalSign.recordedBy', 'queue'])
+                    ->orderByDesc('consultation_date')->orderByDesc('medical_record_id');
+            },
+            'vitalSigns' => function (HasMany $measurements): void {
+                $measurements->with('recordedBy')->orderByDesc('recorded_at')->orderByDesc('vital_id');
+            },
+        ])->findOrFail($this->patientId);
+
         return view('livewire.medical-record-details', [
-            'patient' => PatientInformation::with([
-                'medicalRecords' => fn ($query) => $query->with(['handledBy', 'vitalSign.recordedBy'])
-                    ->orderByDesc('consultation_date')->orderByDesc('medical_record_id'),
-            ])->findOrFail($this->patientId),
+            'patient' => $patient,
+            'latestQueue' => $patient->queues()->orderByDesc('queue_date')->orderByDesc('queue_id')->first(),
         ]);
     }
 }
