@@ -50,7 +50,7 @@ test('email verification status is unchanged when the email address is unchanged
     $this->assertNotNull($user->refresh()->email_verified_at);
 });
 
-test('user can delete their account', function () {
+test('account deletion is disabled to preserve clinical authorship', function () {
     $user = User::factory()->create();
 
     $response = $this
@@ -60,14 +60,13 @@ test('user can delete their account', function () {
         ]);
 
     $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/');
+        ->assertForbidden();
 
-    $this->assertGuest();
-    $this->assertNull($user->fresh());
+    $this->assertAuthenticatedAs($user);
+    $this->assertNotNull($user->fresh());
 });
 
-test('correct password must be provided to delete account', function () {
+test('account deletion stays disabled regardless of password', function () {
     $user = User::factory()->create();
 
     $response = $this
@@ -78,8 +77,7 @@ test('correct password must be provided to delete account', function () {
         ]);
 
     $response
-        ->assertSessionHasErrorsIn('userDeletion', 'password')
-        ->assertRedirect('/profile');
+        ->assertForbidden();
 
     $this->assertNotNull($user->fresh());
 });

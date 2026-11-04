@@ -1,8 +1,11 @@
 <?php
 
 use App\Models\User;
+use App\Services\AccountManagement;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
+use Illuminate\Validation\ValidationException;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -25,8 +28,16 @@ Artisan::command('users:set-role {email} {role}', function (): int {
         return 1;
     }
 
-    $user->forceFill(['role' => $role])->save();
+    try {
+        app(AccountManagement::class)->assignRole($user, $role);
+    } catch (ValidationException $exception) {
+        $this->error($exception->getMessage());
+
+        return 1;
+    }
     $this->info("Role updated to {$role}.");
 
     return 0;
 })->purpose('Assign a health center role to an existing account');
+
+Schedule::command('follow-ups:dispatch')->everyMinute()->withoutOverlapping();

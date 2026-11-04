@@ -21,7 +21,7 @@
 
             <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
                 <div class="max-w-xl">
-                    @include('profile.partials.delete-user-form')
+                    <h2 class="text-lg font-semibold">Account access</h2><p class="mt-2 text-sm text-gray-600">To close your account, ask an administrator to deactivate it. Clinical authorship and history are retained.</p>
                 </div>
             </div>
         </div>

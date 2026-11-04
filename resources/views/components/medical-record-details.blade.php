@@ -35,7 +35,7 @@
                         <div class="sm:col-span-2"><dt class="font-medium text-gray-700">Diagnosis</dt><dd class="mt-1 whitespace-pre-line break-words text-gray-900">{{ $record->diagnosis ?: 'Not recorded' }}</dd></div>
                         <div class="sm:col-span-2"><dt class="font-medium text-gray-700">Treatment plan</dt><dd class="mt-1 whitespace-pre-line break-words text-gray-900">{{ $record->treatment ?: 'Not recorded' }}</dd></div>
                         <div class="sm:col-span-2"><dt class="font-medium text-gray-700">Prescription</dt><dd class="mt-1 whitespace-pre-line break-words text-gray-900">{{ $record->prescription ?: 'Not prescribed' }}</dd></div>
-                        <div><dt class="text-gray-500">Follow-up date</dt><dd class="text-gray-900">{{ $record->follow_up_date?->format('M j, Y') ?: 'Not scheduled' }}</dd></div>
+                        <div><dt class="text-gray-500">Follow-up date</dt><dd class="text-gray-900">{{ $record->follow_up_date?->format('M j, Y') ?: 'Not scheduled' }} @if ($record->follow_up_date) @can('follow-ups-manage') <a href="{{ route('follow-ups.index', ['consultation' => $record->medical_record_id]) }}" class="ml-2 underline">Manage follow-up</a> @endcan @endif</dd></div>
                         <div><dt class="text-gray-500">Created</dt><dd class="text-gray-900">{{ $record->created_at?->timezone('Asia/Manila')->format('M j, Y g:i A') ?: 'Not available' }}</dd></div>
                     </dl>
                 </section>

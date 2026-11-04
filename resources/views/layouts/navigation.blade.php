@@ -58,6 +58,16 @@
                 <rect x="4" y="4" width="16" height="18" rx="2" /><path d="M9 2h6v4H9zM12 10v6M9 13h6" />
             </x-sidebar-link>
         @endcan
+        @can('follow-ups-manage')
+            <x-sidebar-link :href="route('follow-ups.index')" :active="request()->routeIs('follow-ups.*')" label="Follow-ups" display-label="Follow-ups / SMS">
+                <rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 11h18M8 15h3M8 18h5" />
+            </x-sidebar-link>
+        @endcan
+        @can('manage-accounts')
+            <x-sidebar-link :href="route('users-roles.index')" :active="request()->routeIs('users-roles.*')" label="Users & Roles">
+                <circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 7h6m-3-3v6M17 16h5m-5 4h5"/>
+            </x-sidebar-link>
+        @endcan
         <div x-show="!collapsed || !isDesktop" class="!mt-8 rounded-lg bg-blush px-3 py-4 text-xs">
             <svg class="mb-3 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m12 3 8 4v5c0 5-8 9-8 9s-8-4-8-9V7zM8 12l3 3 5-5"/></svg>
             <p class="font-semibold">Patient privacy first</p>

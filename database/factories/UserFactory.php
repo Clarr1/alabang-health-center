@@ -25,7 +25,12 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
+            'first_name' => fake()->firstName(),
+            'last_name' => fake()->lastName(),
+            'middle_name' => null,
+            'name' => fn (array $attributes): string => implode(' ', array_filter([$attributes['first_name'], $attributes['middle_name'], $attributes['last_name']])),
+            'username' => fake()->unique()->userName(),
+            'is_active' => true,
             'role' => 'Local Health Unit Staff',
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class MedicalRecord extends Model
 {
@@ -34,6 +35,11 @@ class MedicalRecord extends Model
             'follow_up_date' => 'date',
             'created_at' => 'datetime',
         ];
+    }
+
+    public function followUp(): HasOne
+    {
+        return $this->hasOne(FollowUp::class, 'medical_record_id', 'medical_record_id');
     }
 
     public function queue(): BelongsTo

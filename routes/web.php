@@ -3,6 +3,7 @@
 use App\Http\Controllers\PatientCardController;
 use App\Http\Controllers\ProfileController;
 use App\Livewire\EditPatient;
+use App\Livewire\FollowUps;
 use App\Livewire\MedicalRecordDetails;
 use App\Livewire\MedicalRecordsForm;
 use App\Livewire\MedicalRecordsTable;
@@ -10,6 +11,7 @@ use App\Livewire\PatientInformationForm;
 use App\Livewire\PatientTable;
 use App\Livewire\QueueDisplay;
 use App\Livewire\QueueManagement;
+use App\Livewire\UsersRoles;
 use App\Livewire\VitalSignsForm;
 use Illuminate\Support\Facades\Route;
 
@@ -18,16 +20,18 @@ Route::get('/', function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/follow-ups', FollowUps::class)->middleware('can:follow-ups-manage')->name('follow-ups.index');
+    Route::get('/users-roles', UsersRoles::class)->middleware('can:manage-accounts')->name('users-roles.index');
     Route::get('/queues', QueueManagement::class)->middleware('can:queue-view')->name('queues.index');
     Route::get('/queues/display', QueueDisplay::class)->middleware('can:queue-view')->name('queues.display');
     Route::get('/queues/{queue_id}/vital-signs/{patient_id}', VitalSignsForm::class)->middleware('can:queue-register')->name('queues.vital-signs');
     Route::get('/queues/{queue_id}/consultation/{patient_id}', MedicalRecordsForm::class)->middleware('can:queue-consult')->name('queues.consultation');
-    Route::get('/patient-information-form', PatientInformationForm::class)->name('patient.information-form');
+    Route::get('/patient-information-form', PatientInformationForm::class)->middleware('can:queue-register')->name('patient.information-form');
     Route::get('/patients', PatientTable::class)->name('patients.index');
     Route::get('/patients/{patient}/edit', EditPatient::class)->middleware('can:queue-register')->name('patients.edit');
     Route::get('/patients/{patient}/card', [PatientCardController::class, 'show'])->name('patients.card.show');
     Route::get('/patients/{patient}/card/pdf', [PatientCardController::class, 'download'])->name('patients.card.download');
-    Route::get('/patient-vital-signs/{patient_id?}', VitalSignsForm::class)->name('patient.vital-signs-form');
+    Route::get('/patient-vital-signs/{patient_id?}', VitalSignsForm::class)->middleware('can:queue-register')->name('patient.vital-signs-form');
     Route::get('/medical-records/records/{record}', MedicalRecordDetails::class)->middleware('can:queue-view')->name('medical-records.show');
     Route::get('/medical-records/{patient_id?}', MedicalRecordsTable::class)->middleware('can:queue-view')->name('medical-records.index');
     Route::get('/doctors-consultation', MedicalRecordsForm::class)->middleware('can:queue-consult')->name('doctors-consultation.index');

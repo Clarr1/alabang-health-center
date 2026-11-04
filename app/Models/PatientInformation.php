@@ -23,10 +23,21 @@ class PatientInformation extends Model
         'sex',
         'address',
         'contact_number',
+        'sms_consent',
         'emergency_contact',
         'registration_date',
         'status',
     ];
+
+    protected function casts(): array
+    {
+        return ['sms_consent' => 'boolean'];
+    }
+
+    public function followUps(): HasMany
+    {
+        return $this->hasMany(FollowUp::class, 'patient_id', 'patient_id');
+    }
 
     public function queues(): HasMany
     {

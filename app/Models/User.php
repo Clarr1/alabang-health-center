@@ -2,20 +2,43 @@
 
 namespace App\Models;
 
-use Database\Factories\UserFactory;
-
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'first_name', 'last_name', 'middle_name', 'username', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
+
+    /** @var array<string, string> */
+    public const ACCOUNT_TYPES = [
+        'Staff' => 'Local Health Unit Staff',
+        'Healthcare Personnel' => 'Doctor',
+        'Admin' => 'Admin',
+    ];
+
+    public function hasAuthorizedRole(): bool
+    {
+        return in_array($this->role, self::ACCOUNT_TYPES, true);
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (User $user): void {
+            if ($user->exists && $user->isDirty('name') && ! $user->isDirty(['first_name', 'last_name', 'middle_name'])) {
+                $user->first_name = null;
+                $user->last_name = null;
+                $user->middle_name = null;
+            }
+        });
+    }
+
+    protected $attributes = ['is_active' => true];
 
     protected $primaryKey = 'user_id';
 
@@ -29,6 +52,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 
