@@ -20,6 +20,8 @@ use Livewire\Component;
 #[Layout('layouts.app')]
 class VitalSignsForm extends Component
 {
+    use VitalSignFields;
+
     #[Locked]
     public ?int $queueId = null;
 
@@ -28,22 +30,6 @@ class VitalSignsForm extends Component
     public $patient_id;
 
     public $patientSearch = '';
-
-    public $blood_pressure = '';
-
-    public $temperature = '';
-
-    public $pulse_rate = '';
-
-    public $respiratory_rate = '';
-
-    public $height = '';
-
-    public $weight = '';
-
-    public $bmi = '';
-
-    public $recorded_at = '';
 
     public function mount(?int $patient_id = null, ?int $queue_id = null): void
     {
@@ -67,48 +53,8 @@ class VitalSignsForm extends Component
     {
         return [
             'patient_id' => ['required', 'integer', 'exists:patient_information,patient_id'],
-            'blood_pressure' => ['nullable', 'string', 'max:20'],
-            'temperature' => ['nullable', 'numeric', 'min:25', 'max:45'],
-            'pulse_rate' => ['nullable', 'integer', 'min:0', 'max:220'],
-            'respiratory_rate' => ['nullable', 'integer', 'min:0', 'max:80'],
-            'height' => ['nullable', 'numeric', 'min:20', 'max:300'],
-            'weight' => ['nullable', 'numeric', 'min:1', 'max:500'],
-            'bmi' => ['nullable', 'numeric', 'min:5', 'max:100'],
-            'recorded_at' => ['required', 'date'],
+            ...$this->vitalSignRules(),
         ];
-    }
-
-    public function updatedHeight(): void
-    {
-        $this->calculateBmi();
-    }
-
-    public function updatedWeight(): void
-    {
-        $this->calculateBmi();
-    }
-
-    public function getBmiCategoryProperty(): string
-    {
-        if ($this->bmi === '' || $this->bmi === null) {
-            return '---';
-        }
-
-        $bmi = (float) $this->bmi;
-
-        if ($bmi < 18.5) {
-            return 'Underweight';
-        }
-
-        if ($bmi < 25) {
-            return 'Normal';
-        }
-
-        if ($bmi < 30) {
-            return 'Overweight';
-        }
-
-        return 'Obese';
     }
 
     public function selectPatient(int $patientId): void
@@ -208,13 +154,7 @@ class VitalSignsForm extends Component
             'queue_id' => $queue?->queue_id,
             'patient_id' => $this->patient_id,
             'recorded_by' => Auth::id(),
-            'blood_pressure' => $this->blood_pressure ?: null,
-            'temperature' => $this->temperature !== '' ? $this->temperature : null,
-            'pulse_rate' => $this->pulse_rate !== '' ? (int) $this->pulse_rate : null,
-            'respiratory_rate' => $this->respiratory_rate !== '' ? (int) $this->respiratory_rate : null,
-            'height' => $this->height !== '' ? $this->height : null,
-            'weight' => $this->weight !== '' ? $this->weight : null,
-            'bmi' => $this->bmi !== '' ? $this->bmi : null,
+            ...$this->vitalSignValues(),
             'recorded_at' => $queue !== null ? now() : ($this->recorded_at ?: now()),
         ]);
 
@@ -243,18 +183,6 @@ class VitalSignsForm extends Component
     public function render(): View
     {
         return view('livewire.vital-signs-form');
-    }
-
-    private function calculateBmi(): void
-    {
-        if ($this->height !== '' && $this->weight !== '' && (float) $this->height > 0) {
-            $heightInMeters = (float) $this->height / 100;
-            $this->bmi = round((float) $this->weight / ($heightInMeters * $heightInMeters), 1);
-
-            return;
-        }
-
-        $this->bmi = '';
     }
 
     public function resetForm(): void

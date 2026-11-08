@@ -106,11 +106,12 @@ class QueueWorkflow
                 throw ValidationException::withMessages(['queue' => 'This status change is not allowed.']);
             }
 
-            if ($nextStatus === 'Ready for Consultation' && ! $queue->vitalSign()->exists()) {
+            if ($nextStatus === 'Ready for Consultation' && ! $queue->vitalSign()->where('patient_id', $queue->patient_id)->exists()) {
                 throw ValidationException::withMessages(['queue' => 'Save vital signs before marking the patient ready for consultation.']);
             }
 
-            if ($nextStatus === 'Completed' && ! $queue->medicalRecord()->exists()) {
+            if ($nextStatus === 'Completed' && ! $queue->medicalRecord()->where('patient_id', $queue->patient_id)
+                ->whereIn('vital_signs_id', $queue->vitalSign()->where('patient_id', $queue->patient_id)->select('vital_id'))->exists()) {
                 throw ValidationException::withMessages(['queue' => 'Save the medical record before completing this visit.']);
             }
 
@@ -172,7 +173,7 @@ class QueueWorkflow
                 throw ValidationException::withMessages(['queue' => 'Select the current unsaved consultation visit.']);
             }
 
-            if (! $queue->vitalSign()->whereKey($vitalId)->exists()) {
+            if (! $queue->vitalSign()->where('patient_id', $patientId)->whereKey($vitalId)->exists()) {
                 throw ValidationException::withMessages(['vital_signs_id' => 'Use the vital signs recorded for this queue visit.']);
             }
 

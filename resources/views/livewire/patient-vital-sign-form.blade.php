@@ -20,6 +20,9 @@
         </div>
     @endif
 
+    @if ($registeredPatientId !== null)
+        <button type="button" wire:click="resetForm" class="rounded-md bg-blue-600 px-5 py-3 font-semibold text-white">Register another patient</button>
+    @else
     <form wire:submit.prevent="save" class="space-y-8">
         <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <div class="mb-5 border-b border-gray-200 pb-3">
@@ -146,4 +149,5 @@
             </button>
         </div>
     </form>
+    @endif
 </div>

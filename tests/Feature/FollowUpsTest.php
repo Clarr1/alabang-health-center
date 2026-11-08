@@ -78,6 +78,35 @@ it('rejects invalid numbers, past appointments, duplicate slots and mismatched c
     expect(FollowUp::count())->toBe(1);
 });
 
+it('preserves failed scheduling inputs and form errors when filters are corrected', function () {
+    $form = Livewire::test(FollowUps::class)->set('patient_id', (string) $this->patient->patient_id)
+        ->set('date', '2026-11-05')->set('time', '09:00')->set('purpose', 'Synthetic checkup')
+        ->set('internal_notes', 'Synthetic private note')->set('mobile', 'invalid')->call('save')
+        ->assertHasErrors('mobile')->assertSet('purpose', 'Synthetic checkup')->assertSet('mobile', 'invalid')
+        ->assertSet('internal_notes', 'Synthetic private note')
+        ->set('from', 'invalid')->assertHasErrors(['from', 'mobile'])
+        ->call('clearFilters')->assertHasNoErrors('from')->assertHasErrors('mobile');
+    expect(FollowUp::count())->toBe(0);
+    $form->set('mobile', '09171234567')->call('save')->assertHasNoErrors()
+        ->call('save')->assertHasNoErrors();
+    expect(FollowUp::count())->toBe(1);
+    $form->call('newAppointment')->assertSet('appointmentId', null)->assertSet('patient_id', '')
+        ->assertSet('purpose', '')->assertSet('mobile', '')->assertSet('internal_notes', '')->assertHasNoErrors();
+    Http::assertNothingSent();
+});
+
+it('keeps a submitted message pending delivery verification on malformed provider reports', function () {
+    $appointment = app(FollowUpWorkflow::class)->save($this->data);
+    $message = $appointment->messages()->where('type', 'Confirmation')->first();
+    fakeAcceptedFollowUpSms();
+    sendFollowUpMessage($message);
+    Http::fake(['*/sms-batch/*' => Http::response(['data' => ['messages' => null]])]);
+    (new RefreshFollowUpDelivery($message->id))->handle(app(TextBee::class));
+    expect($message->fresh()->status)->toBe('Submitted')
+        ->and($message->fresh()->outcome)->toContain('Delivery check unavailable')
+        ->and($message->fresh()->attempts)->toBe(1);
+});
+
 it('keeps reschedule history, replaces pending notices and rejects stale edits', function () {
     $workflow = app(FollowUpWorkflow::class);
     $appointment = $workflow->save($this->data);

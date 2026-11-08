@@ -13,10 +13,10 @@
             <section class="patient-card">
                 <h2 class="text-base font-semibold">Follow-up schedule</h2><p class="mt-1 text-xs text-muted">{{ $appointments->total() }} checkups · All times Asia/Manila</p>
                 <div class="mt-5 grid gap-3 sm:grid-cols-2">
-                    <div class="sm:col-span-2"><label class="patient-label" for="follow-search">Search patient name or ID</label><input id="follow-search" wire:model.live.debounce.300ms="search" class="patient-input w-full" placeholder="Search appointments"></div>
-                    <div><label class="patient-label" for="follow-from">From date</label><input id="follow-from" type="date" wire:model.live="from" class="patient-input w-full"></div>
-                    <div><label class="patient-label" for="follow-to">To date</label><input id="follow-to" type="date" wire:model.live="to" class="patient-input w-full"></div>
-                    <div><label class="patient-label" for="follow-status">Status</label><select id="follow-status" wire:model.live="status" class="patient-input w-full"><option value="">All statuses</option>@foreach (['Scheduled', 'Completed', 'Cancelled', 'No Show'] as $option)<option>{{ $option }}</option>@endforeach</select></div>
+                    <div class="sm:col-span-2"><label class="patient-label" for="follow-search">Search patient name or ID</label><input id="follow-search" wire:model.live.debounce.300ms="search" class="patient-input w-full" placeholder="Search appointments"><x-input-error :messages="$errors->get('search')" /></div>
+                    <div><label class="patient-label" for="follow-from">From date</label><input id="follow-from" type="date" wire:model.live="from" class="patient-input w-full"><x-input-error :messages="$errors->get('from')" /></div>
+                    <div><label class="patient-label" for="follow-to">To date</label><input id="follow-to" type="date" wire:model.live="to" class="patient-input w-full"><x-input-error :messages="$errors->get('to')" /></div>
+                    <div><label class="patient-label" for="follow-status">Status</label><select id="follow-status" wire:model.live="status" class="patient-input w-full"><option value="">All statuses</option>@foreach (['Scheduled', 'Completed', 'Cancelled', 'No Show'] as $option)<option>{{ $option }}</option>@endforeach</select><x-input-error :messages="$errors->get('status')" /></div>
                     <div class="flex items-end"><button type="button" wire:click="clearFilters" class="patient-button">Clear filters</button></div>
                 </div>
                 <div class="mt-5 overflow-x-auto" wire:loading.class="opacity-50">

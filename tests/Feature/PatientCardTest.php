@@ -27,7 +27,7 @@ function createCardPatient(array $attributes = []): PatientInformation
 
 it('opens and closes the card modal without changing the patient record', function () {
     $patient = createCardPatient();
-    $attributes = $patient->getAttributes();
+    $attributes = $patient->fresh()->getAttributes();
 
     Livewire::actingAs(User::factory()->create())
         ->test(PatientTable::class)

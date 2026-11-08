@@ -77,6 +77,7 @@ class FollowUps extends Component
         Gate::authorize('follow-ups-manage');
         if (in_array($property, ['search', 'from', 'to', 'status'], true)) {
             $this->resetPage();
+            $this->resetErrorBag(['search', 'from', 'to', 'status']);
         }
     }
 
@@ -173,14 +174,29 @@ class FollowUps extends Component
         Gate::authorize('follow-ups-manage');
         $this->reset('search', 'from', 'to', 'status');
         $this->resetPage();
+        $this->resetErrorBag(['search', 'from', 'to', 'status']);
     }
 
     public function render(): View
     {
         Gate::authorize('follow-ups-manage');
-        $validFrom = preg_match('/^\d{4}-\d{2}-\d{2}$/D', $this->from) && strtotime($this->from) !== false;
-        $validTo = preg_match('/^\d{4}-\d{2}-\d{2}$/D', $this->to) && strtotime($this->to) !== false;
+        $validator = Validator::make($this->only(['search', 'from', 'to', 'status']), [
+            'search' => ['string', 'max:255'],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', ...($this->from !== '' ? ['after_or_equal:from'] : [])],
+            'status' => ['nullable', 'in:Scheduled,Completed,Cancelled,No Show'],
+        ]);
+        $validFilters = $validator->passes();
+        if (! $validFilters) {
+            foreach ($validator->errors()->messages() as $field => $messages) {
+                $this->resetErrorBag($field);
+                foreach ($messages as $message) {
+                    $this->addError($field, $message);
+                }
+            }
+        }
         $appointments = FollowUp::with(['patient', 'messages' => fn ($query) => $query->latest('id')])
+            ->when(! $validFilters, fn ($query) => $query->whereRaw('1 = 0'))
             ->when($this->search !== '', function ($query): void {
                 $query->whereHas('patient', function ($query): void {
                     $query->where('patient_id', 'like', '%'.$this->search.'%')->orWhere(function ($query): void {
@@ -191,8 +207,8 @@ class FollowUps extends Component
                 });
             })
             ->when(in_array($this->status, ['Scheduled', 'Completed', 'Cancelled', 'No Show'], true), fn ($query) => $query->where('status', $this->status))
-            ->when($validFrom, fn ($query) => $query->where('scheduled_at', '>=', CarbonImmutable::parse($this->from, 'Asia/Manila')->startOfDay()->utc()))
-            ->when($validTo, fn ($query) => $query->where('scheduled_at', '<', CarbonImmutable::parse($this->to, 'Asia/Manila')->addDay()->startOfDay()->utc()))
+            ->when($validFilters && $this->from !== '', fn ($query) => $query->where('scheduled_at', '>=', CarbonImmutable::parse($this->from, 'Asia/Manila')->startOfDay()->utc()))
+            ->when($validFilters && $this->to !== '', fn ($query) => $query->where('scheduled_at', '<', CarbonImmutable::parse($this->to, 'Asia/Manila')->addDay()->startOfDay()->utc()))
             ->orderBy('scheduled_at')->orderBy('id')->paginate(8);
         $patients = PatientInformation::where(function ($query): void {
             $query->where('first_name', 'like', '%'.$this->patientSearch.'%')->orWhere('last_name', 'like', '%'.$this->patientSearch.'%')->orWhere('patient_id', $this->patientSearch);

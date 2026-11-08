@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\PatientInformation;
+use Closure;
 use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -66,10 +67,10 @@ trait PatientFormFields
             return collect();
         }
 
-        $birthdate = DateTimeImmutable::createFromFormat('!Y-m-d', (string) $this->birthdate);
+        $birthdate = $this->parsedPatientBirthdate();
 
         if (! filled($this->first_name) || ! filled($this->last_name)
-            || $birthdate === false || $birthdate->format('Y-m-d') !== $this->birthdate) {
+            || $birthdate === null) {
             return collect();
         }
 
@@ -99,11 +100,22 @@ trait PatientFormFields
     protected function calculatePatientAge(): void
     {
         $today = now('Asia/Manila')->startOfDay();
-        $birthdate = DateTimeImmutable::createFromFormat('!Y-m-d', (string) $this->birthdate, $today->getTimezone());
+        $birthdate = $this->parsedPatientBirthdate();
 
-        $this->age = $birthdate !== false && $birthdate->format('Y-m-d') === $this->birthdate && $birthdate <= $today
+        $this->age = $birthdate !== null && $birthdate <= $today
             ? $birthdate->diff($today)->y
             : '';
+    }
+
+    protected function parsedPatientBirthdate(): ?DateTimeImmutable
+    {
+        if (! is_string($this->birthdate) || preg_match('/^\d{4}-\d{2}-\d{2}$/D', $this->birthdate) !== 1) {
+            return null;
+        }
+
+        $birthdate = DateTimeImmutable::createFromFormat('!Y-m-d', $this->birthdate, now('Asia/Manila')->getTimezone());
+
+        return $birthdate !== false && $birthdate->format('Y-m-d') === $this->birthdate ? $birthdate : null;
     }
 
     public function rules(): array
@@ -112,13 +124,20 @@ trait PatientFormFields
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'birthdate' => ['required', 'date'],
-            'age' => ['required', 'integer', 'min:0', 'max:150'],
+            'birthdate' => ['bail', 'required', 'date_format:Y-m-d', 'before_or_equal:'.now('Asia/Manila')->toDateString()],
+            'age' => ['required', 'integer', 'min:0', 'max:150', function (string $attribute, mixed $value, Closure $fail): void {
+                $today = now('Asia/Manila')->startOfDay();
+                $birthdate = $this->parsedPatientBirthdate();
+                if ($birthdate !== null && $birthdate <= $today
+                    && (int) $value !== $birthdate->diff($today)->y) {
+                    $fail('The age must match the patient birthdate.');
+                }
+            }],
             'sex' => ['required', 'in:Male,Female'],
             'address' => ['required', 'string'],
             'contact_number' => ['nullable', 'string', 'max:20'],
             'emergency_contact' => ['nullable', 'string', 'max:255'],
-            'registration_date' => ['required', 'date'],
+            'registration_date' => ['bail', 'required', 'date_format:Y-m-d', ...($this->parsedPatientBirthdate() !== null ? ['after_or_equal:birthdate'] : []), 'before_or_equal:'.now('Asia/Manila')->toDateString()],
         ];
     }
 }

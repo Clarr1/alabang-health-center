@@ -84,8 +84,12 @@ class TextBee
         if (! $response->successful()) {
             return null;
         }
-        foreach ($response->json('data.messages', []) as $message) {
-            if (($message['recipient'] ?? null) !== $recipient) {
+        $messages = $response->json('data.messages');
+        if (! is_array($messages)) {
+            return null;
+        }
+        foreach ($messages as $message) {
+            if (! is_array($message) || ($message['recipient'] ?? null) !== $recipient) {
                 continue;
             }
 

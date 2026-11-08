@@ -3,85 +3,84 @@
 namespace App\Livewire;
 
 use App\Models\PatientInformation;
-use Livewire\Attributes\Layout;
-use Livewire\Component;
+use App\Models\VitalSign;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
-#[Layout('layouts.app')]
-class PatientInformationForm extends Component
+class PatientVitalSignForm extends PatientInformationForm
 {
-    public $patient;
+    use VitalSignFields;
 
-    public $first_name = '';
-
-    public $middle_name = '';
-
-    public $last_name = '';
-
-    public $birthdate = '';
-
-    public $age = '';
-
-    public $sex = 'Male';
-
-    public $address = '';
-
-    public $contact_number = '';
-
-    public $emergency_contact = '';
-
-    public $registration_date = '';
-
-    public $status = 'Active';
+    public string $status = 'Active';
 
     public function mount(): void
     {
-        $this->registration_date = now()->toDateString();
+        Gate::authorize('queue-register');
+        parent::mount();
+        $this->recorded_at = now('Asia/Manila')->format('Y-m-d\TH:i');
     }
 
     public function rules(): array
     {
         return [
-            'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'birthdate' => ['required', 'date'],
-            'age' => ['required', 'integer', 'min:0', 'max:150'],
-            'sex' => ['required', 'in:Male,Female'],
-            'address' => ['required', 'string'],
-            'contact_number' => ['nullable', 'string', 'max:20'],
-            'emergency_contact' => ['nullable', 'string', 'max:255'],
-            'registration_date' => ['required', 'date'],
-            'status' => ['required', 'string', 'max:50'],
+            ...parent::rules(),
+            ...$this->vitalSignRules(),
+            'status' => ['required', 'in:Active,Inactive,Follow-up'],
         ];
+    }
+
+    public function save(): void
+    {
+        Gate::authorize('queue-register');
+        if ($this->registeredPatientId !== null) {
+            return;
+        }
+        $this->calculateBmi();
+        $validated = $this->validate();
+
+        try {
+            $patient = DB::transaction(function () use ($validated): PatientInformation {
+                $patient = PatientInformation::create(array_intersect_key($validated, parent::rules()) + ['status' => $this->status]);
+                VitalSign::create([
+                    ...$this->vitalSignValues(),
+                    'patient_id' => $patient->patient_id,
+                    'recorded_by' => auth()->id(),
+                    'recorded_at' => $this->recorded_at,
+                ]);
+
+                return $patient;
+            }, 5);
+        } catch (QueryException $exception) {
+            report($exception);
+            $this->addError('patient', 'Unable to save the patient and vital signs. Please try again.');
+
+            return;
+        }
+
+        $this->resetForm();
+        $this->registeredPatientId = $patient->patient_id;
+        session()->flash('success', 'Patient information and vital signs saved successfully.');
+        $this->dispatch('patient-information-saved');
     }
 
     public function savePatient(): void
     {
-        $this->validate();
-
-        $patient = PatientInformation::create([
-            'first_name' => $this->first_name,
-            'middle_name' => $this->middle_name,
-            'last_name' => $this->last_name,
-            'birthdate' => $this->birthdate,
-            'age' => (int) $this->age,
-            'sex' => $this->sex,
-            'address' => $this->address,
-            'contact_number' => $this->contact_number,
-            'emergency_contact' => $this->emergency_contact,
-            'registration_date' => $this->registration_date,
-            'status' => $this->status,
-        ]);
-
-        $this->patient = $patient;
-
-        session()->flash('success', 'Patient information saved successfully. You can now record vital signs.');
-
-        $this->redirect(route('patient.vital-signs-form', ['patient_id' => $patient->patient_id]), navigate: true);
+        $this->save();
     }
 
-    public function render()
+    public function resetForm(): void
     {
-        return view('livewire.patient-information-form');
+        parent::resetForm();
+        $this->reset('status', 'blood_pressure', 'temperature', 'pulse_rate', 'respiratory_rate', 'height', 'weight', 'bmi');
+        $this->recorded_at = now('Asia/Manila')->format('Y-m-d\TH:i');
+    }
+
+    public function render(): View
+    {
+        Gate::authorize('queue-register');
+
+        return view('livewire.patient-vital-sign-form');
     }
 }
