@@ -31,12 +31,22 @@ it('links the patients page to the patient registration form', function () {
     $this->actingAs(User::factory()->create())
         ->get(route('patients.index'))
         ->assertOk()
+        ->assertSee('<title>Patient Record</title>', false)
+        ->assertSeeLivewire(PatientTable::class)->assertDontSeeLivewire(PatientInformationForm::class)
         ->assertSee('href="'.route('patient.information-form').'" wire:navigate', false)
         ->assertSee('Register patient');
 
     $this->get(route('patient.information-form'))
         ->assertOk()
+        ->assertSee('<title>Patient Registration</title>', false)
+        ->assertDontSeeLivewire(PatientTable::class)
         ->assertSeeLivewire(PatientInformationForm::class);
+});
+
+it('shows the patient directory to doctors without registration links or registration access', function () {
+    $this->actingAs(User::factory()->create(['role' => 'Doctor']))->get(route('patients.index'))->assertOk()
+        ->assertSee('Patient Record')->assertDontSee('Register patient')->assertDontSee('aria-label="Patient Registration"', false);
+    $this->get(route('patient.information-form'))->assertForbidden();
 });
 
 it('searches, paginates, and views a selected patient', function () {

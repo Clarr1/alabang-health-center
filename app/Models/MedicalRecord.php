@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class MedicalRecord extends Model
@@ -20,6 +21,10 @@ class MedicalRecord extends Model
         'vital_signs_id',
         'handled_by',
         'diagnosis',
+        'diagnosis_id',
+        'chief_complaint',
+        'custom_symptoms',
+        'laboratory_requests',
         'prescription',
         'treatment',
         'consultation_notes',
@@ -31,6 +36,7 @@ class MedicalRecord extends Model
     protected function casts(): array
     {
         return [
+            'custom_symptoms' => 'array',
             'consultation_date' => 'date',
             'follow_up_date' => 'date',
             'created_at' => 'datetime',
@@ -40,6 +46,22 @@ class MedicalRecord extends Model
     public function followUp(): HasOne
     {
         return $this->hasOne(FollowUp::class, 'medical_record_id', 'medical_record_id');
+    }
+
+    public function primaryDiagnosis(): BelongsTo
+    {
+        return $this->belongsTo(Diagnosis::class, 'diagnosis_id');
+    }
+
+    public function symptoms(): BelongsToMany
+    {
+        return $this->belongsToMany(Symptom::class, 'medical_record_symptoms', 'medical_record_id', 'symptom_id')->withPivot('symptom_name');
+    }
+
+    /** @return array<int, string> */
+    public function symptomNames(): array
+    {
+        return $this->symptoms->toBase()->map(fn (Symptom $symptom): string => $symptom->pivot->symptom_name)->merge($this->custom_symptoms ?? [])->all();
     }
 
     public function queue(): BelongsTo

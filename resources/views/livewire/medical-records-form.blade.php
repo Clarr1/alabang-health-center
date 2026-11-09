@@ -77,20 +77,108 @@
         <form aria-label="Doctor&#039;s Consultation Form" wire:submit="saveMedicalRecord" wire:confirm="Save this medical record and complete the consultation?" class="relative">
             <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
                 <div class="min-w-0 space-y-5">
+                    <section class="patient-card" aria-labelledby="consultation-vitals-title">
+                        <h2 id="consultation-vitals-title" class="text-sm font-semibold">Latest vitals <span class="sr-only">Current Visit Vital Signs</span></h2>
+                        @if ($visitVital)
+                            <p class="mt-2 text-[11px] leading-relaxed text-muted">{{ $visitVital->recorded_at?->timezone('Asia/Manila')->format('d M Y, h:i A') ?: 'Time not recorded' }} &middot; {{ $visitVital->recordedBy?->name ?: 'Unknown' }}</p>
+                            <dl class="mt-4 space-y-3 text-xs">
+                                <div><dt class="inline">BP </dt><dd class="inline">@if ($visitVital->blood_pressure){{ $visitVital->blood_pressure }} mmHg@else Not recorded @endif</dd></div>
+                                <div><dt class="inline">Temperature </dt><dd class="inline">@if ($visitVital->temperature !== null){{ $visitVital->temperature }} &deg;C@else Not recorded @endif</dd></div>
+                                <div><dt class="inline">Pulse </dt><dd class="inline">@if ($visitVital->pulse_rate !== null){{ $visitVital->pulse_rate }} bpm@else Not recorded @endif</dd></div>
+                                <div><dt class="inline">Respiratory rate </dt><dd class="inline">@if ($visitVital->respiratory_rate !== null){{ $visitVital->respiratory_rate }} /min@else Not recorded @endif</dd></div>
+                                <div><dt class="inline">Height </dt><dd class="inline">@if ($visitVital->height !== null){{ $visitVital->height }} cm@else Not recorded @endif</dd></div>
+                                <div><dt class="inline">Weight </dt><dd class="inline">@if ($visitVital->weight !== null){{ $visitVital->weight }} kg@else Not recorded @endif</dd></div>
+                                <div><dt class="inline">BMI </dt><dd class="inline">{{ $visitVital->bmi ?? 'Not recorded' }}</dd></div>
+                            </dl>
+                        @else
+                            <p class="mt-3 text-xs text-muted">No vital signs have been recorded for this patient.</p>
+                        @endif
+                    </section>
+
+                    <section x-cloak x-show="historyOpen" x-ref="historySection" id="consultation-history" class="patient-card scroll-mt-5" aria-labelledby="previous-records-title">
+                        <h2 id="previous-records-title" class="text-sm font-semibold">Previous Medical Records</h2>
+                        <div class="mt-3 divide-y divide-line">
+                            @forelse ($this->medicalRecords as $record)
+                                <article wire:key="consultation-history-{{ $record->medical_record_id }}" class="py-4 first:pt-0 last:pb-0">
+                                    <div class="flex flex-wrap items-start justify-between gap-3">
+                                        <div class="min-w-0"><h3 class="break-words text-sm font-semibold">{{ $record->diagnosis ?: 'Not available' }}</h3><p class="mt-1 text-[11px] text-muted">{{ $record->consultation_date?->format('d M Y') ?: 'Date not available' }} &middot; {{ $record->handledBy?->name ?: 'Unknown' }}</p></div>
+                                        <button type="button" wire:click="viewMedicalRecord({{ $record->medical_record_id }})" wire:loading.attr="disabled" class="patient-button px-3 py-2 text-xs">View Details</button>
+                                    </div>
+                                    <p class="mt-2 whitespace-pre-line break-words text-xs">{{ $record->treatment ?: 'No treatment recorded.' }}</p>
+                                    <p class="mt-2 whitespace-pre-line break-words text-xs"><span class="font-medium">Chief complaint:</span> {{ $record->chief_complaint ?? $record->consultation_notes ?: 'Not recorded' }}</p>
+                                    <p class="mt-2 break-words text-xs"><span class="font-medium">Symptoms:</span> {{ implode(', ', $record->symptomNames()) ?: 'Not recorded' }}</p>
+                                    <p class="mt-1 whitespace-pre-line break-words text-xs text-muted">{{ $record->consultation_notes ?: 'No consultation notes.' }}</p>
+                                </article>
+                            @empty
+                                <p class="text-xs text-muted">No previous medical records.</p>
+                            @endforelse
+                        </div>
+                    </section>
+
                     <section class="patient-card" aria-labelledby="clinical-documentation-title">
                         <h2 id="clinical-documentation-title" class="text-sm font-semibold">Clinical documentation</h2>
                         <p class="mt-1 text-xs text-muted">{{ now('Asia/Manila')->format('d M Y') }} &middot; {{ Auth::user()->name }}</p>
                         <div class="mt-5 space-y-4">
                             <div>
-                                <label for="consultation_notes" class="patient-label">Chief Complaint / Interview &amp; consultation notes <span aria-hidden="true">*</span></label>
-                                <textarea id="consultation_notes" wire:model="consultation_notes" rows="4" required aria-describedby="consultation-notes-help" class="patient-input w-full"></textarea>
-                                <p id="consultation-notes-help" class="mt-1 text-[11px] text-muted">Record the complaint, interview, and consultation notes together.</p>
-                                <x-input-error :messages="$errors->get('consultation_notes')" class="mt-2" />
+                                <label for="chief_complaint" class="patient-label">Chief Complaint</label>
+                                <textarea id="chief_complaint" wire:model="chief_complaint" rows="4" maxlength="10000" class="patient-input w-full"></textarea>
+                                <x-input-error :messages="$errors->get('chief_complaint')" class="mt-2" />
+                            </div>
+                            <div x-data="{ open: false, other: false }" x-on:keydown.escape.stop="open = false" x-on:click.outside="open = false">
+                                <label for="symptom-search" class="patient-label">Symptoms</label>
+                                <div class="mb-2 flex flex-wrap gap-2" aria-live="polite">
+                                    @foreach ($this->selectedSymptoms as $symptom)
+                                        <span wire:key="selected-symptom-{{ $symptom->id }}" class="inline-flex items-center gap-2 rounded-full bg-brand-blue px-3 py-1 text-xs">{{ $symptom->name }}<button type="button" wire:click="removeSymptom({{ $symptom->id }})" aria-label="Remove {{ $symptom->name }}" class="rounded p-1">&times;</button></span>
+                                    @endforeach
+                                    @foreach ($customSymptoms as $index => $name)
+                                        @if (is_string($name))
+                                        <span wire:key="custom-symptom-{{ $index }}-{{ md5($name) }}" class="inline-flex items-center gap-2 rounded-full bg-brand-pink px-3 py-1 text-xs">{{ $name }}<button type="button" wire:click="removeCustomSymptom({{ $index }})" aria-label="Remove {{ $name }}" class="rounded p-1">&times;</button></span>
+                                        @endif
+                                    @endforeach
+                                </div>
+                                <input id="symptom-search" type="search" wire:model.live.debounce.250ms="symptomSearch" x-on:focus="open = true" x-on:input="open = true" x-on:keydown.arrow-down.prevent="open = true; $nextTick(() => $refs.symptomOptions.querySelector('button')?.focus())" x-bind:aria-expanded="open" aria-controls="symptom-options" placeholder="Search and select symptoms..." autocomplete="off" maxlength="255" class="patient-input w-full">
+                                <div x-cloak x-show="open" x-ref="symptomOptions" id="symptom-options" class="mt-1 max-h-56 overflow-y-auto rounded-lg border border-line bg-white p-1 shadow-sm">
+                                    @forelse ($this->availableSymptoms as $symptom)
+                                        <button type="button" wire:key="symptom-option-{{ $symptom->id }}" wire:click="selectSymptom({{ $symptom->id }})" wire:loading.attr="disabled" class="block w-full rounded px-3 py-2 text-left text-xs hover:bg-blush">{{ $symptom->name }}</button>
+                                    @empty
+                                        <p class="px-3 py-2 text-xs text-muted">No matching symptoms.</p>
+                                    @endforelse
+                                    <button type="button" x-on:click="other = true; open = false; $nextTick(() => $refs.customSymptom.focus())" class="block w-full rounded px-3 py-2 text-left text-xs font-semibold hover:bg-blush">Other / Add symptom</button>
+                                </div>
+                                <div x-cloak x-show="other" class="mt-3">
+                                    <label for="custom-symptom" class="patient-label">Additional symptom</label>
+                                    <div class="flex gap-2"><input x-ref="customSymptom" id="custom-symptom" wire:model="customSymptom" x-on:keydown.enter.prevent="$wire.addCustomSymptom()" maxlength="255" class="patient-input min-w-0 flex-1"><button type="button" wire:click="addCustomSymptom" wire:loading.attr="disabled" class="patient-button text-xs">Add</button></div>
+                                    <x-input-error :messages="$errors->get('customSymptom')" class="mt-2" />
+                                </div>
+                                <x-input-error :messages="$errors->get('selectedSymptomIds')" class="mt-2" />
+                                <x-input-error :messages="collect($errors->get('selectedSymptomIds.*'))->flatten()->all()" class="mt-2" />
+                                <x-input-error :messages="$errors->get('customSymptoms')" class="mt-2" />
+                                <x-input-error :messages="collect($errors->get('customSymptoms.*'))->flatten()->all()" class="mt-2" />
+                            </div>
+                            <div x-data="{ open: false }" x-on:keydown.escape.stop="open = false" x-on:click.outside="open = false">
+                                <label for="diagnosis-search" class="patient-label">Diagnosis <span aria-hidden="true">*</span></label>
+                                <p class="mb-2 text-xs">{{ $diagnosisSelection === 'other' ? 'Other / New Diagnosis' : $diagnosis }}</p>
+                                <input id="diagnosis-search" type="search" wire:model.live.debounce.250ms="diagnosisSearch" x-on:focus="open = true" x-on:input="open = true" x-on:keydown.arrow-down.prevent="open = true; $nextTick(() => $refs.diagnosisOptions.querySelector('button')?.focus())" x-bind:aria-expanded="open" aria-controls="diagnosis-options" placeholder="Search diagnoses by name..." autocomplete="off" maxlength="255" class="patient-input w-full">
+                                <div x-cloak x-show="open" x-ref="diagnosisOptions" id="diagnosis-options" class="mt-1 max-h-56 overflow-y-auto rounded-lg border border-line bg-white p-1 shadow-sm">
+                                    @forelse ($this->availableDiagnoses as $option)
+                                        <button type="button" wire:key="diagnosis-option-{{ $option->id }}" wire:click="selectDiagnosis('{{ $option->id }}')" x-on:click="open = false" wire:loading.attr="disabled" class="block w-full rounded px-3 py-2 text-left text-xs hover:bg-blush">{{ $option->name }}</button>
+                                    @empty
+                                        <p class="px-3 py-2 text-xs text-muted">No matching diagnoses.</p>
+                                    @endforelse
+                                    <button type="button" wire:click="selectDiagnosis('other')" x-on:click="open = false" wire:loading.attr="disabled" class="block w-full rounded px-3 py-2 text-left text-xs font-semibold hover:bg-blush">Other / New Diagnosis</button>
+                                </div>
+                                @if ($diagnosisSelection === 'other')
+                                    <label for="diagnosis" class="patient-label mt-3">New diagnosis wording *</label>
+                                    <input id="diagnosis" wire:model="diagnosis" required maxlength="255" class="patient-input w-full">
+                                    <p class="mt-1 text-[11px] text-muted">Your wording is saved with this consultation. New catalog entries require review.</p>
+                                @endif
+                                <x-input-error :messages="$errors->get('diagnosisSelection')" class="mt-2" />
+                                <x-input-error :messages="$errors->get('diagnosis')" class="mt-2" />
                             </div>
                             <div>
-                                <label for="diagnosis" class="patient-label">Diagnosis <span aria-hidden="true">*</span></label>
-                                <textarea id="diagnosis" wire:model="diagnosis" rows="2" required class="patient-input w-full"></textarea>
-                                <x-input-error :messages="$errors->get('diagnosis')" class="mt-2" />
+                                <label for="treatment" class="patient-label">Treatment Plan / Care plan <span aria-hidden="true">*</span></label>
+                                <textarea id="treatment" wire:model="treatment" rows="3" required class="patient-input w-full"></textarea>
+                                <x-input-error :messages="$errors->get('treatment')" class="mt-2" />
                             </div>
                             <div>
                                 <label for="prescription" class="patient-label">Prescription (optional)</label>
@@ -98,9 +186,14 @@
                                 <x-input-error :messages="$errors->get('prescription')" class="mt-2" />
                             </div>
                             <div>
-                                <label for="treatment" class="patient-label">Treatment Plan / Care plan <span aria-hidden="true">*</span></label>
-                                <textarea id="treatment" wire:model="treatment" rows="3" required class="patient-input w-full"></textarea>
-                                <x-input-error :messages="$errors->get('treatment')" class="mt-2" />
+                                <label for="laboratory_requests" class="patient-label">Laboratory Requests (optional)</label>
+                                <textarea id="laboratory_requests" wire:model="laboratory_requests" rows="2" maxlength="10000" class="patient-input w-full"></textarea>
+                                <x-input-error :messages="$errors->get('laboratory_requests')" class="mt-2" />
+                            </div>
+                            <div>
+                                <label for="consultation_notes" class="patient-label">Interview &amp; Consultation Notes *</label>
+                                <textarea id="consultation_notes" wire:model="consultation_notes" rows="4" required class="patient-input w-full"></textarea>
+                                <x-input-error :messages="$errors->get('consultation_notes')" class="mt-2" />
                             </div>
                             <div class="sm:max-w-xs">
                                 <label for="consultation_date" class="patient-label">Consultation Date <span aria-hidden="true">*</span></label>
@@ -112,9 +205,8 @@
 
                     <section class="patient-card" aria-labelledby="additional-care-title">
                         <h2 id="additional-care-title" class="text-sm font-semibold">Additional care documentation</h2>
-                        <p id="additional-care-help" class="mt-1 text-xs leading-relaxed text-muted">Lab requests and vaccination notes are not available in this form yet.</p>
+                        <p id="additional-care-help" class="mt-1 text-xs leading-relaxed text-muted">Record laboratory requests above. Vaccination notes are not available in this form yet.</p>
                         <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                            <div><label for="consultation-lab-request" class="patient-label">Lab request</label><input id="consultation-lab-request" type="text" disabled placeholder="Not available" aria-describedby="additional-care-help" class="patient-input w-full cursor-not-allowed bg-gray-50"></div>
                             <div><label for="consultation-vaccination" class="patient-label">Vaccination notes</label><input id="consultation-vaccination" type="text" disabled placeholder="Not available" aria-describedby="additional-care-help" class="patient-input w-full cursor-not-allowed bg-gray-50"></div>
                         </div>
                         <div x-data="{ needsFollowUp: @js(! empty($follow_up_date)) }" class="mt-5 border-t border-line pt-4">
@@ -133,43 +225,11 @@
                         </div>
                     </section>
 
-                    <section x-cloak x-show="historyOpen" x-ref="historySection" id="consultation-history" class="patient-card scroll-mt-5" aria-labelledby="previous-records-title">
-                        <h2 id="previous-records-title" class="text-sm font-semibold">Previous Medical Records</h2>
-                        <div class="mt-3 divide-y divide-line">
-                            @forelse ($this->medicalRecords as $record)
-                                <article wire:key="consultation-history-{{ $record->medical_record_id }}" class="py-4 first:pt-0 last:pb-0">
-                                    <div class="flex flex-wrap items-start justify-between gap-3">
-                                        <div class="min-w-0"><h3 class="break-words text-sm font-semibold">{{ $record->diagnosis ?: 'Not available' }}</h3><p class="mt-1 text-[11px] text-muted">{{ $record->consultation_date?->format('d M Y') ?: 'Date not available' }} &middot; {{ $record->handledBy?->name ?: 'Unknown' }}</p></div>
-                                        <button type="button" wire:click="viewMedicalRecord({{ $record->medical_record_id }})" wire:loading.attr="disabled" class="patient-button px-3 py-2 text-xs">View Details</button>
-                                    </div>
-                                    <p class="mt-2 whitespace-pre-line break-words text-xs">{{ $record->treatment ?: 'No treatment recorded.' }}</p>
-                                    <p class="mt-1 whitespace-pre-line break-words text-xs text-muted">{{ $record->consultation_notes ?: 'No consultation notes.' }}</p>
-                                </article>
-                            @empty
-                                <p class="text-xs text-muted">No previous medical records.</p>
-                            @endforelse
-                        </div>
-                    </section>
+
                 </div>
 
                 <aside class="min-w-0 space-y-5" aria-label="Visit vitals and patient history">
-                    <section class="patient-card" aria-labelledby="consultation-vitals-title">
-                        <h2 id="consultation-vitals-title" class="text-sm font-semibold">Latest vitals <span class="sr-only">Current Visit Vital Signs</span></h2>
-                        @if ($visitVital)
-                            <p class="mt-2 text-[11px] leading-relaxed text-muted">{{ $visitVital->recorded_at?->timezone('Asia/Manila')->format('d M Y, h:i A') ?: 'Time not recorded' }} &middot; {{ $visitVital->recordedBy?->name ?: 'Unknown' }}</p>
-                            <dl class="mt-4 space-y-3 text-xs">
-                                <div><dt class="inline">BP </dt><dd class="inline">@if ($visitVital->blood_pressure){{ $visitVital->blood_pressure }} mmHg@else Not recorded @endif</dd></div>
-                                <div><dt class="inline">Temperature </dt><dd class="inline">@if ($visitVital->temperature !== null){{ $visitVital->temperature }} &deg;C@else Not recorded @endif</dd></div>
-                                <div><dt class="inline">Pulse </dt><dd class="inline">@if ($visitVital->pulse_rate !== null){{ $visitVital->pulse_rate }} bpm@else Not recorded @endif</dd></div>
-                                <div><dt class="inline">Respiratory rate </dt><dd class="inline">@if ($visitVital->respiratory_rate !== null){{ $visitVital->respiratory_rate }} /min@else Not recorded @endif</dd></div>
-                                <div><dt class="inline">Height </dt><dd class="inline">@if ($visitVital->height !== null){{ $visitVital->height }} cm@else Not recorded @endif</dd></div>
-                                <div><dt class="inline">Weight </dt><dd class="inline">@if ($visitVital->weight !== null){{ $visitVital->weight }} kg@else Not recorded @endif</dd></div>
-                                <div><dt class="inline">BMI </dt><dd class="inline">{{ $visitVital->bmi ?? 'Not recorded' }}</dd></div>
-                            </dl>
-                        @else
-                            <p class="mt-3 text-xs text-muted">No vital signs have been recorded for this patient.</p>
-                        @endif
-                    </section>
+
                     <section class="patient-card" aria-labelledby="relevant-history-title">
                         <h2 id="relevant-history-title" class="text-sm font-semibold">Relevant history</h2>
                         <p class="mt-3 text-[11px] leading-relaxed text-muted">Allergy information is not recorded in this system.</p>

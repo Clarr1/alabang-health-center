@@ -2,9 +2,11 @@
 
 namespace App\Livewire;
 
+use App\Models\Diagnosis;
 use App\Models\MedicalRecord;
 use App\Models\PatientInformation;
 use App\Models\Queue;
+use App\Models\Symptom;
 use App\Services\QueueWorkflow;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,6 +14,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -36,6 +39,30 @@ class MedicalRecordsForm extends Component
 
     public $diagnosis = '';
 
+    public string $diagnosisSelection = 'other';
+
+    #[Locked]
+    public ?int $catalogDiagnosisId = null;
+
+    #[Locked]
+    public string $catalogDiagnosisWording = '';
+
+    public string $diagnosisSearch = '';
+
+    public string $symptomSearch = '';
+
+    public string $chief_complaint = '';
+
+    public string $laboratory_requests = '';
+
+    /** @var array<int, int> */
+    public array $selectedSymptomIds = [];
+
+    /** @var array<int, string> */
+    public array $customSymptoms = [];
+
+    public string $customSymptom = '';
+
     public $prescription = '';
 
     public $treatment = '';
@@ -49,6 +76,93 @@ class MedicalRecordsForm extends Component
     public $selectedMedicalRecordId = null;
 
     public $showMedicalRecordModal = false;
+
+    #[Computed]
+    public function availableSymptoms(): Collection
+    {
+        Gate::authorize('queue-consult');
+
+        return Symptom::where('is_active', true)->where('name', 'like', '%'.mb_substr($this->symptomSearch, 0, 255).'%')
+            ->whereNotIn('id', $this->selectedSymptomKeys())->orderBy('name')->limit(30)->get();
+    }
+
+    #[Computed]
+    public function selectedSymptoms(): Collection
+    {
+        Gate::authorize('queue-consult');
+
+        return Symptom::whereIn('id', $this->selectedSymptomKeys())->orderBy('name')->get();
+    }
+
+    /** @return array<int, int> */
+    private function selectedSymptomKeys(): array
+    {
+        return array_map(intval(...), array_values(array_filter($this->selectedSymptomIds, fn (mixed $id): bool => is_int($id) || (is_string($id) && ctype_digit($id)))));
+    }
+
+    #[Computed]
+    public function availableDiagnoses(): Collection
+    {
+        Gate::authorize('queue-consult');
+
+        return Diagnosis::where('is_active', true)->where('review_status', 'approved')
+            ->where('name', 'like', '%'.mb_substr($this->diagnosisSearch, 0, 255).'%')->orderBy('name')->limit(30)->get();
+    }
+
+    public function selectSymptom(int $symptomId): void
+    {
+        Gate::authorize('queue-consult');
+        $symptom = Symptom::where('is_active', true)->findOrFail($symptomId);
+        if (! in_array($symptomId, $this->selectedSymptomKeys(), true)) {
+            $this->selectedSymptomIds[] = $symptomId;
+        }
+        $this->customSymptoms = array_values(array_filter($this->customSymptoms, fn (mixed $name): bool => ! is_string($name) || Diagnosis::normalizeName($name) !== Diagnosis::normalizeName($symptom->name)));
+        $this->symptomSearch = '';
+        unset($this->selectedSymptoms, $this->availableSymptoms);
+    }
+
+    public function removeSymptom(int $symptomId): void
+    {
+        Gate::authorize('queue-consult');
+        $this->selectedSymptomIds = array_values(array_diff($this->selectedSymptomKeys(), [$symptomId]));
+        unset($this->selectedSymptoms, $this->availableSymptoms);
+    }
+
+    public function addCustomSymptom(): void
+    {
+        Gate::authorize('queue-consult');
+        $this->validate([
+            'customSymptom' => ['required', 'string', 'max:255', 'not_regex:/^\s*$/u'],
+            'customSymptoms' => ['array', 'max:49'],
+            'customSymptoms.*' => ['required', 'string', 'max:255'],
+        ]);
+        $names = $this->selectedSymptoms->pluck('name')->merge($this->customSymptoms)->map(fn (string $name): string => Diagnosis::normalizeName($name));
+        if ($names->contains(Diagnosis::normalizeName($this->customSymptom))) {
+            $this->addError('customSymptom', 'This symptom is already selected.');
+
+            return;
+        }
+        $this->customSymptoms[] = $this->customSymptom;
+        $this->customSymptom = '';
+    }
+
+    public function removeCustomSymptom(int $index): void
+    {
+        Gate::authorize('queue-consult');
+        unset($this->customSymptoms[$index]);
+        $this->customSymptoms = array_values($this->customSymptoms);
+    }
+
+    public function selectDiagnosis(string $selection): void
+    {
+        Gate::authorize('queue-consult');
+        $diagnosis = $selection === 'other' ? null : Diagnosis::where('is_active', true)->where('review_status', 'approved')->findOrFail($selection);
+        $this->diagnosisSelection = $selection;
+        $this->catalogDiagnosisId = $diagnosis?->id;
+        $this->catalogDiagnosisWording = $diagnosis?->name ?? '';
+        $this->diagnosis = $diagnosis?->name ?? '';
+        $this->diagnosisSearch = '';
+    }
 
     public function mount(?int $patient_id = null, ?int $queue_id = null): void
     {
@@ -155,14 +269,26 @@ class MedicalRecordsForm extends Component
         $this->dispatch('queue-updated');
     }
 
-    /** @return array<string, array<int, string>> */
+    /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
         return [
             'queueId' => ['required', 'integer', 'exists:queues,queue_id'],
             'patient_id' => ['required', 'integer', 'exists:patient_information,patient_id'],
             'vital_signs_id' => ['required', 'integer', 'exists:vital_signs,vital_id'],
-            'diagnosis' => ['required', 'string'],
+            'chief_complaint' => ['nullable', 'string', 'max:10000'],
+            'laboratory_requests' => ['nullable', 'string', 'max:10000'],
+            'diagnosisSelection' => ['required', 'string', 'max:30', function (string $attribute, mixed $value, \Closure $fail): void {
+                if ($value !== 'other' && (! ctype_digit($value) || (int) $value !== $this->catalogDiagnosisId || ! Diagnosis::where('is_active', true)->where('review_status', 'approved')->whereKey($value)->exists())) {
+                    $fail('Select an active, approved diagnosis or choose Other / New Diagnosis.');
+                }
+            }],
+            'diagnosis' => ['required', 'string', 'max:255', 'not_regex:/^\s*$/u'],
+            'selectedSymptomIds' => ['array', 'max:50'],
+            'selectedSymptomIds.*' => ['bail', 'integer', 'distinct', Rule::exists('symptoms', 'id')->where('is_active', true)],
+            'customSymptoms' => ['array', 'max:50'],
+            'customSymptoms.*' => ['bail', 'required', 'string', 'max:255', 'distinct:ignore_case', 'not_regex:/^\s*$/u'],
+            'customSymptom' => ['nullable', 'string', 'max:255'],
             'prescription' => ['nullable', 'string'],
             'treatment' => [$this->queueId !== null ? 'required' : 'nullable', 'string'],
             'consultation_notes' => [$this->queueId !== null ? 'required' : 'nullable', 'string'],
@@ -220,7 +346,7 @@ class MedicalRecordsForm extends Component
         Gate::authorize('queue-consult');
 
         return $this->patient
-            ? $this->patient->medicalRecords()->with('handledBy', 'vitalSign')->latest('consultation_date')->latest('medical_record_id')->get()
+            ? $this->patient->medicalRecords()->with('handledBy', 'vitalSign', 'symptoms')->latest('consultation_date')->latest('medical_record_id')->get()
             : collect();
     }
 
@@ -233,32 +359,68 @@ class MedicalRecordsForm extends Component
         }
 
         return $this->patient->medicalRecords()
-            ->with(['patient', 'handledBy', 'vitalSign.recordedBy'])->find($this->selectedMedicalRecordId);
+            ->with(['patient', 'handledBy', 'vitalSign.recordedBy', 'symptoms'])->find($this->selectedMedicalRecordId);
     }
 
     public function saveMedicalRecord(): void
     {
         Gate::authorize('queue-consult');
         $this->validate();
+        if (trim($this->customSymptom) !== '') {
+            $this->addError('customSymptom', 'Add this symptom using the Add button before saving.');
+
+            return;
+        }
+        $symptomNames = $this->selectedSymptoms->pluck('name')->merge($this->customSymptoms)->map(fn (string $name): string => Diagnosis::normalizeName($name));
+        if ($symptomNames->unique()->count() !== $symptomNames->count()) {
+            $this->addError('customSymptoms', 'Each symptom may only be entered once.');
+
+            return;
+        }
         if (! $this->patient || (int) $this->patient->patient_id !== (int) $this->patient_id || ! $this->patient->vitalSigns()->whereKey($this->vital_signs_id)->exists()) {
             $this->addError('vital_signs_id', 'Select a vital signs record for this consultation.');
 
             return;
         }
 
-        $save = fn (Queue $queue): MedicalRecord => MedicalRecord::create([
-            'queue_id' => $queue->queue_id,
-            'patient_id' => $this->patient_id,
-            'vital_signs_id' => $this->vital_signs_id,
-            'handled_by' => Auth::id(),
-            'diagnosis' => $this->diagnosis,
-            'prescription' => $this->prescription ?: null,
-            'treatment' => $this->treatment ?: null,
-            'consultation_notes' => $this->consultation_notes ?: null,
-            'consultation_date' => $this->consultation_date,
-            'follow_up_date' => $this->follow_up_date ?: null,
-            'created_at' => now(),
-        ]);
+        $save = function (Queue $queue): MedicalRecord {
+            if ($this->diagnosisSelection === 'other') {
+                $diagnosis = Diagnosis::firstOrCreate(['normalized_name' => Diagnosis::normalizeName($this->diagnosis)], [
+                    'name' => $this->diagnosis, 'review_status' => 'pending', 'is_active' => false,
+                ]);
+                $diagnosisText = $this->diagnosis;
+            } else {
+                $diagnosis = Diagnosis::where('is_active', true)->where('review_status', 'approved')->lockForUpdate()->find($this->diagnosisSelection);
+                if (! $diagnosis) {
+                    throw ValidationException::withMessages(['diagnosisSelection' => 'This diagnosis is no longer available. Select another diagnosis.']);
+                }
+                $diagnosisText = $this->catalogDiagnosisWording;
+            }
+            $symptoms = Symptom::whereIn('id', $this->selectedSymptomIds)->where('is_active', true)->lockForUpdate()->get();
+            if ($symptoms->count() !== count($this->selectedSymptomIds)) {
+                throw ValidationException::withMessages(['selectedSymptomIds' => 'A selected symptom is no longer available. Review the selection.']);
+            }
+            $record = MedicalRecord::create([
+                'queue_id' => $queue->queue_id,
+                'patient_id' => $this->patient_id,
+                'vital_signs_id' => $this->vital_signs_id,
+                'handled_by' => Auth::id(),
+                'diagnosis' => $diagnosisText,
+                'diagnosis_id' => $diagnosis->id,
+                'chief_complaint' => $this->chief_complaint !== '' ? $this->chief_complaint : null,
+                'custom_symptoms' => $this->customSymptoms ?: null,
+                'laboratory_requests' => $this->laboratory_requests !== '' ? $this->laboratory_requests : null,
+                'prescription' => $this->prescription ?: null,
+                'treatment' => $this->treatment ?: null,
+                'consultation_notes' => $this->consultation_notes ?: null,
+                'consultation_date' => $this->consultation_date,
+                'follow_up_date' => $this->follow_up_date ?: null,
+                'created_at' => now(),
+            ]);
+            $record->symptoms()->attach($symptoms->mapWithKeys(fn (Symptom $symptom): array => [$symptom->id => ['symptom_name' => $symptom->name]])->all());
+
+            return $record;
+        };
 
         try {
             app(QueueWorkflow::class)->saveMedicalRecord($this->queueId, (int) $this->patient_id, (int) $this->vital_signs_id, $save);
@@ -279,12 +441,15 @@ class MedicalRecordsForm extends Component
         $this->reset([
             'queueId', 'patient', 'patient_id', 'vital_signs_id',
             'diagnosis', 'prescription', 'treatment', 'consultation_notes', 'follow_up_date',
+            'chief_complaint', 'laboratory_requests', 'diagnosisSelection', 'diagnosisSearch', 'symptomSearch', 'selectedSymptomIds', 'customSymptoms', 'customSymptom',
+            'catalogDiagnosisId', 'catalogDiagnosisWording',
         ]);
         $this->consultation_date = now('Asia/Manila')->toDateString();
         $this->patient_id = null;
         $this->closeMedicalRecordModal();
         $this->resetValidation();
         unset($this->medicalRecords, $this->vitalSigns, $this->consultationQueue, $this->activeConsultations);
+        unset($this->selectedSymptoms, $this->availableSymptoms, $this->availableDiagnoses);
     }
 
     public function render(): View

@@ -122,6 +122,9 @@
                             <div class="flex flex-wrap items-start justify-between gap-3"><h3 class="min-w-0 break-words text-sm font-semibold">{{ $record->consultation_date?->format('d M Y') ?: 'Not provided.' }} &middot; {{ filled($record->diagnosis) ? $record->diagnosis : 'Not provided.' }}</h3><span class="rounded bg-[#e9ebf0] px-2 py-1 text-[10px] font-medium">{{ $record->queue?->status === 'Completed' ? 'Finalized' : 'Saved' }}</span></div>
                             <p class="mt-2 text-[11px] text-muted">{{ $record->handledBy?->name ?: 'Not provided.' }} &middot; Saved {{ $record->created_at?->timezone('Asia/Manila')->format('d M Y') ?: 'Not provided.' }}</p>
                             <p class="mt-3 whitespace-pre-line break-words text-xs leading-relaxed"><span class="font-medium">Prescription:</span> {{ filled($record->prescription) ? $record->prescription : 'Not provided.' }}</p>
+                            <p class="mt-2 whitespace-pre-line break-words text-xs leading-relaxed"><span class="font-medium">Chief complaint:</span> {{ $record->chief_complaint ?? $record->consultation_notes ?: 'Not provided.' }}</p>
+                            <p class="mt-2 break-words text-xs leading-relaxed"><span class="font-medium">Symptoms:</span> {{ implode(', ', $record->symptomNames()) ?: 'Not recorded' }}</p>
+                            <p class="mt-2 whitespace-pre-line break-words text-xs leading-relaxed"><span class="font-medium">Laboratory requests:</span> {{ $record->laboratory_requests ?: 'Not recorded' }}</p>
                             <p class="mt-2 whitespace-pre-line break-words text-xs leading-relaxed"><span class="font-medium">Treatment / notes:</span> {{ filled($record->treatment) ? $record->treatment : 'Not provided.' }}</p>
                             <p class="mt-2 whitespace-pre-line break-words text-xs leading-relaxed text-muted">{{ filled($record->consultation_notes) ? $record->consultation_notes : 'Not provided.' }}</p>
                             <div class="mt-3 flex flex-wrap gap-2">
@@ -190,13 +193,16 @@
                                         @foreach ([
                                             'Consultation date' => $record->consultation_date?->format('M j, Y'),
                                             'Attending doctor' => $record->handledBy?->name,
-                                            'Chief complaint' => $record->consultation_notes,
+                                            'Chief complaint' => $record->chief_complaint ?? $record->consultation_notes,
+                                            'Symptoms' => implode(', ', $record->symptomNames()),
                                             'Diagnosis' => $record->diagnosis,
                                             'Treatment plan' => $record->treatment,
                                             'Prescription' => $record->prescription,
+                                            'Laboratory requests' => $record->laboratory_requests,
+                                            'Consultation notes' => $record->consultation_notes,
                                             'Follow-up date' => $record->follow_up_date?->format('M j, Y'),
                                         ] as $label => $value)
-                                            <div @class(['min-w-0', 'sm:col-span-2 lg:col-span-3' => in_array($label, ['Chief complaint', 'Diagnosis', 'Treatment plan', 'Prescription'], true)])>
+                                            <div @class(['min-w-0', 'sm:col-span-2 lg:col-span-3' => in_array($label, ['Chief complaint', 'Symptoms', 'Diagnosis', 'Treatment plan', 'Prescription', 'Laboratory requests', 'Consultation notes'], true)])>
                                                 <dt class="font-medium text-muted">{{ $label }}</dt>
                                                 <dd class="mt-1 whitespace-pre-line break-words text-ink">{{ filled($value) ? $value : 'Not provided.' }}</dd>
                                             </div>

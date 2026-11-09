@@ -180,7 +180,7 @@ it('starts another registration only after explicitly leaving the generated ID s
     $form->assertSet('registeredPatientId', $firstPatientId)
         ->assertDontSee('wire:submit.prevent="savePatient"', false)
         ->call('resetForm')->assertSet('registeredPatientId', null)
-        ->assertSee('New patient registration')->assertDontSee('Printable healthcare ID')
+        ->assertSee('Patient Registration')->assertDontSee('Printable healthcare ID')
         ->assertSet('first_name', '')->assertSet('showReview', false)
         ->call('savePatient')->assertHasErrors(['first_name', 'last_name', 'birthdate', 'age', 'address'])
         ->set('first_name', 'Second')->set('last_name', 'Patient')->set('birthdate', '2000-01-01')

@@ -31,10 +31,13 @@
                     <dl class="grid gap-4 text-sm sm:grid-cols-2">
                         <div><dt class="text-gray-500">Consultation date</dt><dd class="text-gray-900">{{ $record->consultation_date?->format('M j, Y') ?: 'Not available' }}</dd></div>
                         <div><dt class="text-gray-500">Attending doctor</dt><dd class="text-gray-900">{{ $record->handledBy?->name ?: 'Not available' }}</dd></div>
-                        <div class="sm:col-span-2"><dt class="font-medium text-gray-700">Chief complaint</dt><dd class="mt-1 whitespace-pre-line break-words text-gray-900">{{ $record->consultation_notes ?: 'Not recorded' }}</dd></div>
+                        <div class="sm:col-span-2"><dt class="font-medium text-gray-700">Chief complaint</dt><dd class="mt-1 whitespace-pre-line break-words text-gray-900">{{ $record->chief_complaint ?? $record->consultation_notes ?: 'Not recorded' }}</dd></div>
+                        <div class="sm:col-span-2"><dt class="font-medium text-gray-700">Symptoms</dt><dd class="mt-1 break-words text-gray-900">{{ implode(', ', $record->symptomNames()) ?: 'Not recorded' }}</dd></div>
                         <div class="sm:col-span-2"><dt class="font-medium text-gray-700">Diagnosis</dt><dd class="mt-1 whitespace-pre-line break-words text-gray-900">{{ $record->diagnosis ?: 'Not recorded' }}</dd></div>
                         <div class="sm:col-span-2"><dt class="font-medium text-gray-700">Treatment plan</dt><dd class="mt-1 whitespace-pre-line break-words text-gray-900">{{ $record->treatment ?: 'Not recorded' }}</dd></div>
                         <div class="sm:col-span-2"><dt class="font-medium text-gray-700">Prescription</dt><dd class="mt-1 whitespace-pre-line break-words text-gray-900">{{ $record->prescription ?: 'Not prescribed' }}</dd></div>
+                        <div class="sm:col-span-2"><dt class="font-medium text-gray-700">Laboratory requests</dt><dd class="mt-1 whitespace-pre-line break-words text-gray-900">{{ $record->laboratory_requests ?: 'Not recorded' }}</dd></div>
+                        <div class="sm:col-span-2"><dt class="font-medium text-gray-700">Consultation notes</dt><dd class="mt-1 whitespace-pre-line break-words text-gray-900">{{ $record->consultation_notes ?: 'Not recorded' }}</dd></div>
                         <div><dt class="text-gray-500">Follow-up date</dt><dd class="text-gray-900">{{ $record->follow_up_date?->format('M j, Y') ?: 'Not scheduled' }} @if ($record->follow_up_date) @can('follow-ups-manage') <a href="{{ route('follow-ups.index', ['consultation' => $record->medical_record_id]) }}" class="ml-2 underline">Manage follow-up</a> @endcan @endif</dd></div>
                         <div><dt class="text-gray-500">Created</dt><dd class="text-gray-900">{{ $record->created_at?->timezone('Asia/Manila')->format('M j, Y g:i A') ?: 'Not available' }}</dd></div>
                     </dl>

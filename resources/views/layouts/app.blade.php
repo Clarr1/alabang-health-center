@@ -27,7 +27,7 @@
                                 class="rounded-md p-2 text-ink hover:bg-blush focus:outline-none focus:ring-2 focus:ring-brand-blue lg:hidden">
                             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
                         </button>
-                        <span class="hidden text-muted sm:inline">Patient registration &amp; medical records</span>
+                        <span class="hidden text-muted sm:inline">Patient management &amp; medical records</span>
                         <span class="font-medium sm:hidden">Alabang Health Center</span>
                     </div>
                     <div class="flex shrink-0 items-center gap-3" aria-label="Partner agencies">

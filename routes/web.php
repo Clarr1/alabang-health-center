@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\PatientCardController;
 use App\Http\Controllers\ProfileController;
+use App\Livewire\DiagnosisManagement;
 use App\Livewire\EditPatient;
 use App\Livewire\FollowUps;
 use App\Livewire\MedicalRecordDetails;
@@ -20,6 +21,7 @@ Route::get('/', function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/diagnoses', DiagnosisManagement::class)->middleware('can:diagnoses-manage')->name('diagnoses.index');
     Route::get('/follow-ups', FollowUps::class)->middleware('can:follow-ups-manage')->name('follow-ups.index');
     Route::get('/users-roles', UsersRoles::class)->middleware('can:manage-accounts')->name('users-roles.index');
     Route::get('/queues', QueueManagement::class)->middleware('can:queue-view')->name('queues.index');

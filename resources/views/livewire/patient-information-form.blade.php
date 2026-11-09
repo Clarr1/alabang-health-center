@@ -1,5 +1,6 @@
 <div class="relative mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8 lg:py-8">
     <img src="{{ asset('images/barangay-alabang.png') }}" alt="" aria-hidden="true" class="pointer-events-none absolute right-4 top-5 w-[440px] max-w-[70%] rounded-full opacity-[0.035]">
+    <nav aria-label="Breadcrumb" class="relative mb-3 text-xs text-muted"><ol class="flex flex-wrap items-center gap-2"><li>Patient Management</li><li aria-hidden="true">/</li><li aria-current="page">Patient Registration</li></ol></nav>
     @if ($registeredPatientId !== null)
         @php($registered = $this->registeredPatient)
         <div wire:key="registered-patient-{{ $registeredPatientId }}" class="relative max-w-4xl" x-data="{ cardReady: false }">
@@ -25,8 +26,8 @@
         </div>
     @else
         <div class="relative mb-6 flex flex-wrap items-start justify-between gap-4">
-            <div><h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">New patient registration</h1><p class="mt-2 text-sm text-muted">Create one patient record for each person. Fields marked * are required.</p></div>
-            <a href="{{ route('patients.index') }}" wire:navigate class="patient-button bg-white text-xs"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m12 5-7 7 7 7M5 12h14"/></svg>Back to patients</a>
+            <div><h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">Patient Registration</h1><p class="mt-2 text-sm text-muted">Create one patient record for each person. Fields marked * are required.</p></div>
+            <a href="{{ route('patients.index') }}" wire:navigate class="patient-button bg-white text-xs"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m12 5-7 7 7 7M5 12h14"/></svg>Back to Patient Record</a>
         </div>
         <ol class="relative mb-6 grid gap-3 text-xs text-muted sm:grid-cols-3" aria-label="Registration progress">
             <li x-bind:class="! $wire.showReview ? 'font-semibold text-ink' : ''" x-bind:aria-current="! $wire.showReview ? 'step' : null">1 &nbsp; Patient information</li>

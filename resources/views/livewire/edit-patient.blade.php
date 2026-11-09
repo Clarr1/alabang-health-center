@@ -2,7 +2,7 @@
     <img src="{{ asset('images/barangay-alabang.png') }}" alt="" aria-hidden="true" class="pointer-events-none absolute right-4 top-5 w-[440px] max-w-[70%] rounded-full opacity-[0.035]">
     <div class="relative mb-6 flex flex-wrap items-start justify-between gap-4">
         <div><h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">Edit Patient</h1><p class="mt-2 text-sm text-muted">Update information for patient #{{ $patientId }}. Fields marked * are required.</p></div>
-        <a href="{{ route('patients.index') }}" wire:navigate class="patient-button bg-white text-xs"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m12 5-7 7 7 7M5 12h14"/></svg>Back to patients</a>
+        <a href="{{ route('patients.index') }}" wire:navigate class="patient-button bg-white text-xs"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m12 5-7 7 7 7M5 12h14"/></svg>Back to Patient Record</a>
     </div>
     <ol class="relative mb-6 grid gap-3 text-xs text-muted sm:grid-cols-2" aria-label="Patient update progress">
         <li x-bind:class="! $wire.showReview ? 'font-semibold text-ink' : ''" x-bind:aria-current="! $wire.showReview ? 'step' : null">1 &nbsp; Patient information</li>

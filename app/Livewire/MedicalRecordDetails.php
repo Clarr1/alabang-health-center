@@ -35,7 +35,7 @@ class MedicalRecordDetails extends Component
 
         $patient = PatientInformation::with([
             'medicalRecords' => function (HasMany $records): void {
-                $records->with(['handledBy', 'vitalSign.recordedBy', 'queue'])
+                $records->with(['handledBy', 'vitalSign.recordedBy', 'queue', 'symptoms'])
                     ->orderByDesc('consultation_date')->orderByDesc('medical_record_id');
             },
             'vitalSigns' => function (HasMany $measurements): void {

@@ -2,13 +2,16 @@
     <img src="{{ asset('images/barangay-alabang.png') }}" alt="" aria-hidden="true" class="pointer-events-none absolute right-4 top-5 -z-10 w-[440px] rounded-full max-w-[70%] opacity-[0.035]">
     <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">Patients &amp; registration</h1>
+            <nav aria-label="Breadcrumb" class="mb-2 text-xs text-muted"><ol class="flex flex-wrap items-center gap-2"><li>Patient Management</li><li aria-hidden="true">/</li><li aria-current="page">Patient Record</li></ol></nav>
+            <h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">Patient Record</h1>
             <p class="mt-2 text-sm text-muted">Find an existing patient before creating a new registration.</p>
         </div>
+        @can('queue-register')
         <a href="{{ route('patient.information-form') }}" wire:navigate class="patient-button border-transparent bg-brand-pink hover:bg-[#f598ba]">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M19 10v8m-4-4h8"/></svg>
             Register patient
         </a>
+        @endcan
     </div>
 
     <section class="patient-card mb-6" aria-label="Patient search and filters">

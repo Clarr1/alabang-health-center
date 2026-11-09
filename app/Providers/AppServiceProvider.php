@@ -12,6 +12,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Gate::define('diagnoses-manage', fn (User $user): bool => $user->is_active && in_array($user->role, ['Admin', 'Doctor'], true));
         Gate::define('follow-ups-manage', fn (User $user): bool => $user->is_active && $user->hasAuthorizedRole());
         Gate::define('manage-accounts', fn (User $user): bool => $user->is_active && $user->role === 'Admin');
         Gate::define('queue-view', fn (User $user): bool => $user->is_active && in_array($user->role, ['Admin', 'Local Health Unit Staff', 'Doctor'], true));
