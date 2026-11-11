@@ -15,6 +15,11 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans text-gray-900 antialiased">
+                @if (config('surveillance.demo'))
+                    <div role="status" class="border-b border-amber-300 bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-900">
+                        FICTIONAL DEMO DATA - Separate test database. Patients, clinical rules, and alerts are simulated for software testing. No clinical approval is implied.
+                    </div>
+                @endif
         <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gray-100">
             <div>
                 <a href="/">

@@ -41,3 +41,5 @@ Artisan::command('users:set-role {email} {role}', function (): int {
 })->purpose('Assign a health center role to an existing account');
 
 Schedule::command('follow-ups:dispatch')->everyMinute()->withoutOverlapping();
+
+Schedule::command('surveillance:detect --scheduled')->everyMinute()->withoutOverlapping(60);

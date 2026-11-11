@@ -85,6 +85,11 @@
                 <path d="M9 6h12M9 12h12M9 18h12M3 6h.01M3 12h.01M3 18h.01" />
             </x-sidebar-link>
         @endcan
+        @can('surveillance-view')
+            <x-sidebar-link :href="route('surveillance.index')" :active="request()->routeIs('surveillance.*')" label="Syndromic Surveillance">
+                <path d="M3 12h4l3-8 4 16 3-8h4M3 21h18" />
+            </x-sidebar-link>
+        @endcan
         @can('manage-accounts')
             <x-sidebar-link :href="route('users-roles.index')" :active="request()->routeIs('users-roles.*')" label="Users & Roles">
                 <circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 7h6m-3-3v6M17 16h5m-5 4h5"/>

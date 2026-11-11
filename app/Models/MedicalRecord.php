@@ -29,6 +29,7 @@ class MedicalRecord extends Model
         'treatment',
         'consultation_notes',
         'consultation_date',
+        'encounter_at',
         'follow_up_date',
         'created_at',
     ];
@@ -38,6 +39,7 @@ class MedicalRecord extends Model
         return [
             'custom_symptoms' => 'array',
             'consultation_date' => 'date',
+            'encounter_at' => 'immutable_datetime',
             'follow_up_date' => 'date',
             'created_at' => 'datetime',
         ];

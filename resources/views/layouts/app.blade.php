@@ -20,6 +20,11 @@
             @include('layouts.navigation')
 
             <div class="min-w-0 transition-[margin] duration-200 motion-reduce:transition-none lg:ml-[var(--sidebar-width)]">
+                @if (config('surveillance.demo'))
+                    <div role="status" class="border-b border-amber-300 bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-900">
+                        FICTIONAL DEMO DATA - Separate test database. Patients, clinical rules, and alerts are simulated for software testing. No clinical approval is implied.
+                    </div>
+                @endif
                 <header class="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-white px-4 py-3 text-xs sm:px-7 lg:px-8">
                     <div class="flex items-center gap-2">
                         <button x-ref="sidebarToggle" type="button" x-on:click="$el.focus(); mobileOpen = true"
@@ -36,6 +41,13 @@
                         <img src="{{ asset('images/city-of-muntinlupa.png') }}" width="32" height="32" alt="City of Muntinlupa" class="h-8 w-8 rounded-full object-contain">
                     </div>
                     <div class="flex items-center gap-4 max-sm:w-full max-sm:justify-end">
+                        @can('surveillance-view')
+                            @if (\Illuminate\Support\Facades\Schema::hasColumn('surveillance_alerts', 'surveillance_result_id'))
+                                <a href="{{ route('surveillance.index') }}" wire:navigate class="rounded-full bg-amber-50 px-3 py-1 font-medium text-amber-800" aria-label="New surveillance alerts">
+                                    Surveillance: {{ \App\Models\SurveillanceAlert::whereNotNull('surveillance_result_id')->where('status', 'New')->count() }} new
+                                </a>
+                            @endif
+                        @endcan
                         <time datetime="{{ now('Asia/Manila')->toDateString() }}">{{ now('Asia/Manila')->format('D, d M Y') }}</time>
                         <span class="flex items-center gap-2 text-muted">
                             <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg>

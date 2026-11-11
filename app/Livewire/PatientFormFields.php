@@ -26,6 +26,8 @@ trait PatientFormFields
 
     public $address = '';
 
+    public string $surveillance_residence = 'Unverified';
+
     public $contact_number = '';
 
     public $emergency_contact = '';
@@ -135,6 +137,7 @@ trait PatientFormFields
             }],
             'sex' => ['required', 'in:Male,Female'],
             'address' => ['required', 'string'],
+            'surveillance_residence' => ['required', 'in:Unverified,Alabang,Outside Scope'],
             'contact_number' => ['nullable', 'string', 'max:20'],
             'emergency_contact' => ['nullable', 'string', 'max:255'],
             'registration_date' => ['bail', 'required', 'date_format:Y-m-d', ...($this->parsedPatientBirthdate() !== null ? ['after_or_equal:birthdate'] : []), 'before_or_equal:'.now('Asia/Manila')->toDateString()],

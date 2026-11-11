@@ -178,7 +178,9 @@ class QueueWorkflow
             }
 
             $record = $save($queue);
+            $record->update(['encounter_at' => $record->consultation_date->toDateString() === $queue->queue_date->toDateString() ? now() : null]);
             $this->transition($queueId, 'In Consultation', 'Completed');
+            app(SyndromeClassifier::class)->classify($record->load('queue'));
 
             return $record;
         }, 5);

@@ -12,6 +12,8 @@ use App\Livewire\PatientInformationForm;
 use App\Livewire\PatientTable;
 use App\Livewire\QueueDisplay;
 use App\Livewire\QueueManagement;
+use App\Livewire\SyndromeManagement;
+use App\Livewire\SyndromicSurveillance;
 use App\Livewire\UsersRoles;
 use App\Livewire\VitalSignsForm;
 use Illuminate\Support\Facades\Route;
@@ -21,6 +23,8 @@ Route::get('/', function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/syndromic-surveillance', SyndromicSurveillance::class)->middleware('can:surveillance-view')->name('surveillance.index');
+    Route::get('/syndromic-surveillance/definitions', SyndromeManagement::class)->middleware('can:surveillance-approve')->name('surveillance.definitions');
     Route::get('/diagnoses', DiagnosisManagement::class)->middleware('can:diagnoses-manage')->name('diagnoses.index');
     Route::get('/follow-ups', FollowUps::class)->middleware('can:follow-ups-manage')->name('follow-ups.index');
     Route::get('/users-roles', UsersRoles::class)->middleware('can:manage-accounts')->name('users-roles.index');

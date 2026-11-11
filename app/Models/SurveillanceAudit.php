@@ -1,0 +1,19 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class SurveillanceAudit extends Model
+{
+    protected $table = 'surveillance_events';
+
+    protected $attributes = ['subject_type' => 'syndromic-engine'];
+
+    protected $guarded = ['id'];
+
+    protected function casts(): array
+    {
+        return ['details' => 'array'];
+    }
+}

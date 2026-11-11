@@ -14,6 +14,8 @@ class PatientInformation extends Model
 
     protected $primaryKey = 'patient_id';
 
+    protected $attributes = ['surveillance_residence' => 'Unverified'];
+
     protected $fillable = [
         'first_name',
         'middle_name',
@@ -22,6 +24,7 @@ class PatientInformation extends Model
         'age',
         'sex',
         'address',
+        'surveillance_residence',
         'contact_number',
         'sms_consent',
         'emergency_contact',
@@ -31,7 +34,20 @@ class PatientInformation extends Model
 
     protected function casts(): array
     {
-        return ['sms_consent' => 'boolean'];
+        return ['sms_consent' => 'boolean', 'residence_verified_at' => 'immutable_datetime'];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (PatientInformation $patient): void {
+            if ($patient->exists && $patient->isDirty('address') && ! $patient->isDirty('surveillance_residence')) {
+                $patient->surveillance_residence = 'Unverified';
+            }
+            if ($patient->isDirty('surveillance_residence') || ($patient->isDirty('address') && $patient->exists)) {
+                $patient->residence_verified_at = $patient->surveillance_residence === 'Unverified' ? null : now();
+                $patient->residence_verified_by = $patient->surveillance_residence === 'Unverified' ? null : auth()->id();
+            }
+        });
     }
 
     public function followUps(): HasMany

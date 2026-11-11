@@ -48,6 +48,7 @@ class PatientInformationForm extends Component
                     'age' => (int) $this->age,
                     'sex' => $this->sex,
                     'address' => $this->address,
+                    'surveillance_residence' => $this->surveillance_residence,
                     'contact_number' => $this->contact_number,
                     'emergency_contact' => $this->emergency_contact,
                     'registration_date' => $this->registration_date,
@@ -86,6 +87,7 @@ class PatientInformationForm extends Component
             'birthdate',
             'age',
             'address',
+            'surveillance_residence',
             'contact_number',
             'emergency_contact',
         ]);

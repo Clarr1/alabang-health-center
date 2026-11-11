@@ -9,7 +9,7 @@
                 'first_name' => 'First name', 'middle_name' => 'Middle name', 'last_name' => 'Last name',
                 'birthdate' => 'Birthdate', 'age' => 'Age', 'sex' => 'Sex', 'address' => 'Full address',
                 'contact_number' => 'Mobile number', 'emergency_contact' => 'Emergency contact',
-                'registration_date' => 'Registration date',
+                'registration_date' => 'Registration date', 'surveillance_residence' => 'Verified surveillance residence',
             ] as $field => $label)
                 <div @class(['min-w-0', 'sm:col-span-3' => $field === 'address'])><dt class="text-xs text-muted">{{ $label }}</dt><dd class="mt-1 whitespace-pre-line break-words text-sm font-medium">{{ filled($details[$field] ?? null) ? $details[$field] : 'Not provided.' }}</dd></div>
             @endforeach
@@ -55,6 +55,14 @@
                 <textarea id="patient-address" wire:model="address" rows="3" required placeholder="House / building / street, purok / sitio, barangay, city, province / region" aria-describedby="patient-address-help patient-address-error" aria-invalid="{{ $errors->has('address') ? 'true' : 'false' }}" class="patient-input w-full"></textarea>
                 <p id="patient-address-help" class="mt-1 text-[11px] text-muted">Include the street, barangay, city, and province or region.</p>
                 <x-input-error id="patient-address-error" :messages="$errors->get('address')" class="mt-1" />
+                <label for="surveillance-residence" class="patient-label mt-4">Verified residence for surveillance</label>
+                <select id="surveillance-residence" wire:model="surveillance_residence" class="patient-input w-full">
+                    <option value="Unverified">Unverified - exclude from surveillance</option>
+                    <option value="Alabang">Confirmed Barangay Alabang, Muntinlupa City</option>
+                    <option value="Outside Scope">Confirmed outside surveillance scope</option>
+                </select>
+                <p class="mt-1 text-xs text-muted">Confirm barangay and city with the patient. Only verified Alabang residents are counted. Verify again when an address changes.</p>
+                <x-input-error :messages="$errors->get('surveillance_residence')" class="mt-1" />
             </div>
             <div class="space-y-4">
                 <div><label for="patient-registration_date" class="patient-label">Registration date <span aria-hidden="true">*</span></label><input id="patient-registration_date" type="date" wire:model="registration_date" required aria-describedby="patient-registration_date-error" aria-invalid="{{ $errors->has('registration_date') ? 'true' : 'false' }}" class="patient-input w-full"><x-input-error id="patient-registration_date-error" :messages="$errors->get('registration_date')" class="mt-1" /></div>

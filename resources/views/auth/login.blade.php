@@ -11,6 +11,9 @@
     @livewireStyles
 </head>
 <body class="flex min-h-screen flex-col bg-blush font-sans text-ink antialiased">
+    @if (config('surveillance.demo'))
+        <div role="status" class="border-b border-amber-300 bg-amber-100 px-4 py-3 text-center text-sm font-semibold text-amber-900">FICTIONAL DEMO DATA - Sign in with a demo account. Your original patient database is separate.</div>
+    @endif
     <a href="#sign-in" class="sr-only focus:not-sr-only focus:absolute focus:z-20 focus:rounded focus:bg-white focus:p-3">Skip to sign in</a>
     <header class="relative z-10 grid items-center gap-3 border-b border-line bg-white px-5 py-4 sm:grid-cols-3 sm:px-10 lg:px-12">
         <a href="{{ url('/') }}" class="flex w-fit items-center gap-2 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-blue" aria-label="Alabang Health Center main entry">
