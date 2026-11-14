@@ -12,6 +12,7 @@ use App\Services\SurveillanceReview;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -26,6 +27,9 @@ use Throwable;
 class SyndromicSurveillance extends Component
 {
     use WithPagination;
+
+    #[Locked]
+    public string $section = 'overview';
 
     public string $syndromeFilter = '';
 
@@ -52,6 +56,11 @@ class SyndromicSurveillance extends Component
     public function mount(): void
     {
         Gate::authorize('surveillance-view');
+        $this->section = match (request()->route()?->getName()) {
+            'surveillance.alerts' => 'alerts',
+            'surveillance.history' => 'history',
+            default => 'overview',
+        };
     }
 
     /** @return array<string, array<int, mixed>> */
@@ -87,7 +96,7 @@ class SyndromicSurveillance extends Component
         Gate::authorize('surveillance-manage');
         try {
             $run = app(SurveillanceEngine::class)->run('manual');
-            session()->flash('surveillance-status', "Manual development detection #{$run->id}: {$run->status}.");
+            session()->flash('surveillance-status', "Case increase check #{$run->id}: {$run->status}.");
         } catch (Throwable $exception) {
             $this->addError('detection', 'Detection failed. The failure was recorded; review the execution log.');
         }
@@ -104,6 +113,7 @@ class SyndromicSurveillance extends Component
         $this->notes = '';
         $this->outcome = '';
         $this->resetValidation();
+        $this->dispatch('surveillance-alert-opened');
     }
 
     public function closeAlert(): void
@@ -122,6 +132,7 @@ class SyndromicSurveillance extends Component
         );
         $this->reviewVersion = $alert->version;
         $this->reset('notes', 'outcome');
+        $this->reviewStatus = app(SurveillanceReview::class)->allowedStatuses($alert->status)[0];
         session()->flash('surveillance-status', 'Investigation action saved to the alert history.');
     }
 
@@ -145,7 +156,7 @@ class SyndromicSurveillance extends Component
     public function render(): View
     {
         Gate::authorize('surveillance-view');
-        $latest = $this->dateFilters(SurveillanceRun::where('status', 'Completed'), 'window_end')->latest('window_end')->with('results')->first();
+        $latest = SurveillanceRun::where('status', 'Completed')->latest('window_end')->latest('id')->with('results')->first();
         $alerts = $this->dateFilters(SurveillanceAlert::whereNotNull('surveillance_result_id'), 'detected_at')
             ->when(ctype_digit($this->syndromeFilter), fn (Builder $query): Builder => $query->where('syndrome_category_id', $this->syndromeFilter))
             ->when(in_array($this->statusFilter, SurveillanceAlert::STATUSES, true), fn (Builder $query): Builder => $query->where('status', $this->statusFilter));
@@ -154,14 +165,22 @@ class SyndromicSurveillance extends Component
         $trends = SurveillanceResult::with('run')->whereHas('run', fn (Builder $query): Builder => $this->dateFilters($query->where('status', 'Completed'), 'window_end'))
             ->when(ctype_digit($this->syndromeFilter), fn (Builder $query): Builder => $query->where('syndrome_category_id', $this->syndromeFilter))
             ->latest('id')->limit(120)->get()->reverse()->groupBy('syndrome_name');
+        $runs = SurveillanceRun::with(['results' => function (HasMany $results): void {
+            if (ctype_digit($this->syndromeFilter)) {
+                $results->where('syndrome_category_id', $this->syndromeFilter);
+            }
+        }]);
 
         return view('livewire.syndromic-surveillance', [
             'latest' => $latest,
             'results' => $latest?->results->when(ctype_digit($this->syndromeFilter), fn ($rows) => $rows->where('syndrome_category_id', $this->syndromeFilter)) ?? collect(),
             'alerts' => $alerts->with('result.run', 'reviewer')->latest('id')->paginate(10),
             'categories' => SyndromeCategory::orderBy('name')->get(), 'selected' => $selected,
+            'reviewStatuses' => $selected ? app(SurveillanceReview::class)->allowedStatuses($selected->status) : [],
+            'activeAlerts' => SurveillanceAlert::whereNotNull('surveillance_result_id')->whereIn('status', ['New', 'Under Review', 'Escalated'])->count(),
+            'awaitingReview' => SurveillanceAlert::whereNotNull('surveillance_result_id')->whereIn('status', ['New', 'Escalated'])->count(),
             'reviewers' => Gate::allows('surveillance-review') ? User::where('is_active', true)->whereIn('role', ['Admin', 'Doctor'])->orderBy('name')->get() : collect(),
-            'runs' => Gate::allows('surveillance-manage') ? SurveillanceRun::latest('id')->limit(10)->get() : collect(),
+            'runs' => $this->section === 'history' && Gate::allows('surveillance-manage') ? $this->dateFilters($runs, 'window_end')->latest('id')->limit(20)->get() : collect(),
             'trends' => $trends,
             'legacyAlerts' => Gate::allows('surveillance-review') ? SurveillanceAlert::whereNull('surveillance_result_id')->latest('id')->limit(20)->get() : collect(),
         ]);

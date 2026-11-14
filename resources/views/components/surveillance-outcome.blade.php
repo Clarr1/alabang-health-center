@@ -1,0 +1,2 @@
+@props(['outcome'])
+<span @class(['inline-block whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold', 'bg-red-100 text-red-800' => $outcome === 'Alert', 'bg-amber-100 text-amber-800' => $outcome === 'Watch', 'bg-green-100 text-green-800' => $outcome === 'Normal', 'bg-gray-100 text-gray-700' => $outcome === 'Insufficient Data'])>{{ match ($outcome) { 'Alert' => 'Needs review', 'Watch' => 'Watch', 'Normal' => 'Within expected range', 'Insufficient Data' => 'Not enough reliable data', default => $outcome } }}</span>

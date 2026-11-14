@@ -127,8 +127,7 @@ class SurveillanceEngine
                     } elseif (count($periods) >= (int) $settings['minimum_periods'] && $currentAttendance >= $settings['minimum_attendance'] && $currentCoverage >= $settings['minimum_coverage'] && array_sum(array_column($periods, 'count')) > 0) {
                         $stats = $this->statistics->evaluate($currentCases->count(), $currentAttendance, $periods, (float) $settings['overdispersion_ratio']);
                         $adjusted = min(1.0, $stats['probability'] * $familySize);
-                        $outcome = $currentCases->count() > $stats['expected']
-                            ? ($adjusted <= $settings['alpha'] ? 'Alert' : ($adjusted <= $settings['watch_alpha'] ? 'Watch' : 'Normal')) : 'Normal';
+                        $outcome = $this->statistics->outcome($currentCases->count(), $stats['expected'], $adjusted, (float) $settings['alpha'], (float) $settings['watch_alpha']);
                         $resultData = array_merge($resultData, [
                             'expected' => $stats['expected'], 'probability' => $stats['probability'], 'adjusted_probability' => $adjusted,
                             'model' => $stats['model'], 'outcome' => $outcome,

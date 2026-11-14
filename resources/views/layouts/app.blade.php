@@ -43,7 +43,7 @@
                     <div class="flex items-center gap-4 max-sm:w-full max-sm:justify-end">
                         @can('surveillance-view')
                             @if (\Illuminate\Support\Facades\Schema::hasColumn('surveillance_alerts', 'surveillance_result_id'))
-                                <a href="{{ route('surveillance.index') }}" wire:navigate class="rounded-full bg-amber-50 px-3 py-1 font-medium text-amber-800" aria-label="New surveillance alerts">
+                                <a href="{{ route('surveillance.alerts') }}" wire:navigate class="rounded-full bg-amber-50 px-3 py-1 font-medium text-amber-800" aria-label="New surveillance alerts">
                                     Surveillance: {{ \App\Models\SurveillanceAlert::whereNotNull('surveillance_result_id')->where('status', 'New')->count() }} new
                                 </a>
                             @endif

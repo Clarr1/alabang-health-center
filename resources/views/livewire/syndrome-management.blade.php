@@ -1,8 +1,9 @@
 <div class="mx-auto max-w-screen-2xl space-y-6 px-4 py-7 sm:px-7 lg:px-8">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 class="text-2xl font-semibold">Syndrome definitions &amp; settings</h1><p class="mt-2 text-xs text-muted">Barangay Alabang, Muntinlupa City · Development and clinical review</p></div>
-        <a href="{{ route('surveillance.index') }}" wire:navigate class="patient-button bg-white">Surveillance dashboard</a>
+        <div><h1 class="text-2xl font-semibold">Syndrome Categories</h1><p class="mt-2 text-xs text-muted">Barangay Alabang, Muntinlupa City · Development and clinical review</p></div>
+        <a href="{{ route('surveillance.index') }}" wire:navigate class="patient-button bg-white">Overview</a>
     </div>
+    <x-surveillance-nav active="surveillance.definitions" />
     <p class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Definitions are configurable clinical rules. A doctor or authorized administrator must approve each version. Category names alone have no symptom mappings and cannot produce alerts. No signal confirms a diagnosis or outbreak.</p>
     @if (session('surveillance-status'))<p role="status" class="patient-card text-sm">{{ session('surveillance-status') }}</p>@endif
     @if ($errors->any())<div role="alert" class="rounded-lg bg-red-50 p-4 text-sm text-red-700"><ul class="list-inside list-disc">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
@@ -17,7 +18,7 @@
                     @can('surveillance-manage')
                         <div class="mt-3 flex gap-2"><button type="button" wire:click="edit({{ $category->id }})" class="patient-button text-xs">Edit / new version</button><button type="button" wire:click="toggle({{ $category->id }})" wire:confirm="Change whether this syndrome is monitored? Saved classifications and alerts will be preserved." class="patient-button text-xs">{{ $category->is_active ? 'Deactivate' : 'Activate' }}</button></div>
                     @endcan
-                    <details class="mt-3 text-xs" open><summary class="cursor-pointer font-medium">Definition versions and approval history</summary>
+                    <details class="mt-3 text-xs"><summary class="cursor-pointer font-medium">Definition versions and approval history</summary>
                         @forelse ($category->rules as $rule)
                             <div class="mt-3 rounded-lg bg-blush p-3">
                                 <p class="font-semibold">Version {{ $rule->version }} · {{ $rule->approved_at ? 'Approved' : 'Unreviewed' }}</p>
@@ -51,25 +52,6 @@
         @endcan
     </div>
     @can('surveillance-manage')
-        <form wire:submit="saveSettings" class="patient-card space-y-5">
-            <h2 class="text-lg font-semibold">Statistical settings for development testing</h2>
-            <p class="text-sm text-muted">Defaults are engineering starting points requiring local validation. Counts are illness episodes separated by the configured symptom-free encounter gap. Baselines use matching weekdays, attendance adjustment, and the same approved rule version. Poisson assumes independent counts with equal mean and variance; excess residual dispersion selects a negative-binomial model. Bonferroni correction applies across monitored categories within each run. Repeated rolling evaluations are correlated; the threshold does not control false positives across all future runs.</p>
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                @foreach ([
-                    'window_hours' => ['Monitoring window (hours)', '1'], 'baseline_weeks' => ['Baseline lookback (weeks)', '1'],
-                    'minimum_periods' => ['Minimum comparable historical periods', '1'], 'minimum_attendance' => ['Minimum encounters per period', '1'],
-                    'minimum_coverage' => ['Minimum structured symptom coverage (0.5–1)', '0.01'], 'episode_gap_hours' => ['Episode separation (hours)', '1'],
-                    'alpha' => ['Alert significance after correction', '0.000001'], 'watch_alpha' => ['Watch significance after correction', '0.001'],
-                    'overdispersion_ratio' => ['Poisson residual dispersion tolerance', '0.1'],
-                ] as $key => [$label, $step])
-                    <div><label for="setting-{{ $key }}" class="patient-label">{{ $label }}</label><input id="setting-{{ $key }}" type="number" step="{{ $step }}" wire:model="settings.{{ $key }}" required class="patient-input w-full"></div>
-                @endforeach
-                <div><label for="frequency-minutes" class="patient-label">Automatic detection interval</label><select id="frequency-minutes" wire:model="settings.frequency_minutes" class="patient-input w-full">@foreach ([15, 30, 60, 120, 360, 720, 1440] as $minutes)<option value="{{ $minutes }}">{{ $minutes }} minutes</option>@endforeach</select></div>
-            </div>
-            <p class="text-xs text-muted">Annual seasonality is considered only with a lookback of at least 60 weeks, using same-weekday windows within 45 calendar days of the current season. Shorter lookbacks use recent history. Missing attendance, poor symptom coverage, unapproved settings, and all-zero baselines produce Insufficient Data.</p>
-            <label class="flex items-start gap-2 text-sm"><input type="checkbox" wire:model="settings.settings_reviewed" required class="mt-1 rounded"><span>I reviewed these statistical assumptions and thresholds for development testing. This does not certify clinical or operational validity.</span></label>
-            <button type="submit" wire:confirm="Save this reviewed configuration for subsequent detection runs? Previous results will remain unchanged." wire:loading.attr="disabled" class="patient-button bg-brand-blue">Save reviewed settings</button>
-        </form>
         <section class="patient-card"><h2 class="text-lg font-semibold">Administrative audit trail</h2><div class="mt-3 space-y-2">@forelse ($audits as $audit)<p class="text-xs">{{ $audit->created_at->setTimezone('Asia/Manila')->format('d M Y H:i') }} · {{ $audit->action }} · Account #{{ $audit->actor_id }}</p>@empty<p class="text-sm text-muted">No configuration changes recorded.</p>@endforelse</div></section>
     @endcan
 </div>

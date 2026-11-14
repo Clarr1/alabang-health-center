@@ -80,12 +80,26 @@ class SurveillanceAdministration
         });
     }
 
+    public function saveSensitivity(string $sensitivity, bool $reviewed): void
+    {
+        Gate::authorize('surveillance-manage');
+        Validator::make(['sensitivity' => $sensitivity, 'reviewed' => $reviewed], [
+            'sensitivity' => ['required', Rule::in(array_keys(config('surveillance.sensitivities')))],
+            'reviewed' => ['accepted'],
+        ])->validate();
+
+        $profile = config('surveillance.sensitivities.'.$sensitivity);
+        $this->saveSettings(array_replace(SurveillanceSetting::current(), [
+            'alpha' => $profile['alpha'], 'watch_alpha' => $profile['watch_alpha'], 'settings_reviewed' => true,
+        ]));
+    }
+
     /** @param array<string, mixed> $values */
     public function saveSettings(array $values): void
     {
         Gate::authorize('surveillance-manage');
         $validated = Validator::make($values, [
-            'window_hours' => ['required', 'integer', 'min:24', 'max:144'],
+            'window_hours' => ['required', 'integer', Rule::in([48])],
             'baseline_weeks' => ['required', 'integer', 'min:4', 'max:104'],
             'minimum_periods' => ['required', 'integer', 'min:4', 'max:'.$values['baseline_weeks']],
             'minimum_attendance' => ['required', 'integer', 'min:1', 'max:10000'],

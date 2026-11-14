@@ -129,7 +129,8 @@ it('generates explainable internal alerts from historical episodes without exter
     $this->travel(1)->minutes();
     $engine->run();
     expect(SurveillanceAlert::count())->toBe(1)->and(SurveillanceRun::count())->toBe(3);
-    $this->get(route('surveillance.index'))->assertOk()->assertSee('10 / 2.00')->assertSee('Surveillance: 1 new');
+    $this->get(route('surveillance.index'))->assertOk()->assertSee('Eligible patients')->assertSee('Surveillance: 1 new');
+    $this->get(route('surveillance.alerts'))->assertOk()->assertSee('10 / 2.00');
     Livewire::test(SyndromicSurveillance::class)->call('openAlert', $alert->id)
         ->assertSee('Counted illness episodes')->assertSee('SIMULATED clinician wording');
     Mail::assertNothingSent();
@@ -225,8 +226,8 @@ it('preserves review history rejects stale reviews and enforces backend roles', 
 it('renders definitions enforces manual detection access and validates administrative input', function () {
     simulatedSurveillanceRule();
     $this->get(route('surveillance.definitions'))->assertOk()->assertSee('Approved')->assertSee('Fever');
-    Livewire::test(SyndromeManagement::class)->set('settings.alpha', 0.9)
-        ->call('saveSettings')->assertHasErrors('alpha');
+    $settings = array_replace(SurveillanceSetting::current(), ['alpha' => 0.9, 'settings_reviewed' => true]);
+    expect(fn () => app(SurveillanceAdministration::class)->saveSettings($settings))->toThrow(ValidationException::class);
     $doctor = User::factory()->create(['role' => 'Doctor']);
     Livewire::actingAs($doctor)->test(SyndromicSurveillance::class)->call('detect')->assertForbidden();
     Livewire::actingAs($doctor)->test(SyndromeManagement::class)->call('saveDefinition')->assertForbidden();
@@ -323,7 +324,7 @@ it('can run without approved definitions and retains an administrative execution
     SyndromeCategory::factory()->create();
     $run = app(SurveillanceEngine::class)->run();
     expect($run->status)->toBe('Completed')->and($run->results()->sole()->outcome)->toBe('Insufficient Data');
-    $this->get(route('surveillance.index'))->assertOk()->assertSee('Insufficient Data');
+    $this->get(route('surveillance.index'))->assertOk()->assertSee('Not enough reliable data');
 });
 
 it('excludes legacy intakes explicitly marked synthetic even when the patient residence is verified', function () {
@@ -401,4 +402,31 @@ it('keeps the eligible-patient total for the full window when a definition start
     simulatedSurveillanceRecord(CarbonImmutable::now('UTC')->subHour());
     $run = app(SurveillanceEngine::class)->run();
     expect($run->eligible_cases)->toBe(2)->and($run->results()->sole()->observed)->toBe(1);
+});
+
+it('applies each sensitivity to the existing corrected detection results without changing the baseline', function (string $sensitivity, string $outcome) {
+    simulatedSurveillanceBaseline(4);
+    app(SurveillanceAdministration::class)->saveSensitivity($sensitivity, true);
+    $run = app(SurveillanceEngine::class)->run();
+    $result = $run->results()->sole();
+    expect($result->observed)->toBe(4)->and($result->expected)->toBe(1.0)
+        ->and($result->model)->toBe('Poisson')->and($result->outcome)->toBe($outcome)
+        ->and($run->window_start->diffInHours($run->window_end))->toBe(48.0)
+        ->and($result->adjusted_probability)->toEqualWithDelta(0.0189881568761538, 1e-12)
+        ->and(SurveillanceAlert::count())->toBe($outcome === 'Alert' ? 1 : 0);
+})->with([['low', 'Normal'], ['balanced', 'Watch'], ['high', 'Alert']]);
+
+it('organizes surveillance pages and retains alert details and investigation history', function () {
+    simulatedSurveillanceBaseline();
+    app(SurveillanceEngine::class)->run();
+    $alert = SurveillanceAlert::sole();
+    app(SurveillanceReview::class)->record($alert->id, 1, 'Under Review', 'SIMULATED review retained in history', null, auth()->id());
+    $this->get(route('surveillance.index'))->assertOk()->assertSee('Alerts requiring review')->assertDontSee('Adjusted probability');
+    $this->get(route('surveillance.settings'))->assertOk()->assertSee('Detection sensitivity')->assertDontSee('setting-window_hours');
+    $this->get(route('surveillance.definitions'))->assertOk()->assertSee('Syndrome Categories')->assertDontSee('saveSettings');
+    $this->get(route('surveillance.history'))->assertOk()->assertSee('Current and expected case trends');
+    $this->get(route('surveillance.alerts'))->assertOk()->assertSee($alert->reference);
+    Livewire::test(SyndromicSurveillance::class)->call('openAlert', $alert->id)
+        ->assertSee('What to review next')->assertSee('Statistical Details')->assertSee('SIMULATED review retained in history')
+        ->assertViewHas('activeAlerts', 1)->assertViewHas('awaitingReview', 0);
 });

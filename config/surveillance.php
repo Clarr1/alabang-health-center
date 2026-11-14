@@ -2,6 +2,15 @@
 
 return [
     'demo' => (bool) env('SURVEILLANCE_DEMO', false),
+    /**
+     * Upper-tail probabilities after the existing per-run Bonferroni correction.
+     * These development presets do not control false positives across future runs.
+     */
+    'sensitivities' => [
+        'low' => ['label' => 'Low Sensitivity', 'alpha' => 0.001, 'watch_alpha' => 0.01],
+        'balanced' => ['label' => 'Balanced (Recommended)', 'alpha' => 0.01, 'watch_alpha' => 0.05],
+        'high' => ['label' => 'High Sensitivity', 'alpha' => 0.05, 'watch_alpha' => 0.1],
+    ],
     'defaults' => [
         'settings_reviewed' => false,
         'window_hours' => 48,

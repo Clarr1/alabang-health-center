@@ -12,6 +12,18 @@ use Illuminate\Validation\ValidationException;
 
 class SurveillanceReview
 {
+    /** @return array<int, string> */
+    public function allowedStatuses(string $status): array
+    {
+        return match ($status) {
+            'New' => ['Under Review', 'Escalated', 'Dismissed'],
+            'Under Review', 'Escalated' => ['Under Review', 'Reviewed', 'Escalated', 'Dismissed', 'Resolved'],
+            'Reviewed' => ['Reviewed', 'Under Review', 'Escalated', 'Resolved'],
+            'Dismissed', 'Resolved' => ['Under Review'],
+            default => [],
+        };
+    }
+
     public function record(int $alertId, int $version, string $status, string $notes, ?string $outcome, ?int $reviewerId): SurveillanceAlert
     {
         Gate::authorize('surveillance-review');
@@ -27,13 +39,7 @@ class SurveillanceReview
             if ($alert->version !== $version) {
                 throw ValidationException::withMessages(['review' => 'This alert changed. Reopen it before saving your review.']);
             }
-            $allowed = match ($alert->status) {
-                'New' => ['Under Review', 'Escalated', 'Dismissed'],
-                'Under Review', 'Escalated' => ['Under Review', 'Reviewed', 'Escalated', 'Dismissed', 'Resolved'],
-                'Reviewed' => ['Reviewed', 'Under Review', 'Escalated', 'Resolved'],
-                'Dismissed', 'Resolved' => ['Under Review'],
-                default => [],
-            };
+            $allowed = $this->allowedStatuses($alert->status);
             if (! in_array($status, $allowed, true)) {
                 throw ValidationException::withMessages(['review' => 'Start a review before recording this outcome. Closed alerts must be reopened first.']);
             }

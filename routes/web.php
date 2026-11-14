@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\PatientCardController;
 use App\Http\Controllers\ProfileController;
+use App\Livewire\DetectionSettings;
 use App\Livewire\DiagnosisManagement;
 use App\Livewire\EditPatient;
 use App\Livewire\FollowUps;
@@ -24,6 +25,9 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/syndromic-surveillance', SyndromicSurveillance::class)->middleware('can:surveillance-view')->name('surveillance.index');
+    Route::get('/syndromic-surveillance/alerts', SyndromicSurveillance::class)->middleware('can:surveillance-view')->name('surveillance.alerts');
+    Route::get('/syndromic-surveillance/history', SyndromicSurveillance::class)->middleware('can:surveillance-view')->name('surveillance.history');
+    Route::get('/syndromic-surveillance/settings', DetectionSettings::class)->middleware('can:surveillance-manage')->name('surveillance.settings');
     Route::get('/syndromic-surveillance/definitions', SyndromeManagement::class)->middleware('can:surveillance-approve')->name('surveillance.definitions');
     Route::get('/diagnoses', DiagnosisManagement::class)->middleware('can:diagnoses-manage')->name('diagnoses.index');
     Route::get('/follow-ups', FollowUps::class)->middleware('can:follow-ups-manage')->name('follow-ups.index');

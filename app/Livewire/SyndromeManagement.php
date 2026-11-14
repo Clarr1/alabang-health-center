@@ -3,7 +3,6 @@
 namespace App\Livewire;
 
 use App\Models\SurveillanceAudit;
-use App\Models\SurveillanceSetting;
 use App\Models\Symptom;
 use App\Models\SyndromeCategory;
 use App\Services\SurveillanceAdministration;
@@ -15,7 +14,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
-#[Title('Syndrome Definitions & Settings')]
+#[Title('Syndrome Categories')]
 class SyndromeManagement extends Component
 {
     #[Locked]
@@ -36,15 +35,10 @@ class SyndromeManagement extends Component
 
     public string $rationale = '';
 
-    /** @var array<string, mixed> */
-    public array $settings = [];
-
     public function mount(): void
     {
         Gate::authorize('surveillance-approve');
         $this->appliesFrom = now('Asia/Manila')->toDateString();
-        $this->settings = SurveillanceSetting::current();
-        $this->settings['settings_reviewed'] = false;
     }
 
     public function edit(int $id): void
@@ -92,13 +86,6 @@ class SyndromeManagement extends Component
     public function toggle(int $id): void
     {
         app(SurveillanceAdministration::class)->toggle($id);
-    }
-
-    public function saveSettings(): void
-    {
-        app(SurveillanceAdministration::class)->saveSettings($this->settings);
-        $this->settings['settings_reviewed'] = false;
-        session()->flash('surveillance-status', 'Statistical settings reviewed and saved for development testing.');
     }
 
     public function render(): View

@@ -6,6 +6,15 @@ use RuntimeException;
 
 class SurveillanceStatistics
 {
+    public function outcome(int $observed, float $expected, float $adjustedProbability, float $alpha, float $watchAlpha): string
+    {
+        if ($observed <= $expected) {
+            return 'Normal';
+        }
+
+        return $adjustedProbability <= $alpha ? 'Alert' : ($adjustedProbability <= $watchAlpha ? 'Watch' : 'Normal');
+    }
+
     /**
      * The upper-tail count probabilities use regularized gamma (Poisson) and beta
      * (negative binomial). Direct special-function evaluation avoids cancellation
