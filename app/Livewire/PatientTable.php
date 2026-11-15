@@ -95,6 +95,7 @@ class PatientTable extends Component
 
         return PatientInformation::query()
             ->fromSub($visits, 'patient_information')
+            ->with('household:id,family_number,label')
             ->select('patient_information.*')
             ->selectRaw("{$lastVisitExpression} AS last_visit_at")
             ->when($search !== '', function (Builder $query) use ($search): void {

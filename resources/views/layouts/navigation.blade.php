@@ -38,9 +38,9 @@
             <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
         </x-sidebar-link>
         @if (auth()->user()?->is_active && auth()->user()?->hasAuthorizedRole())
-            <x-sidebar-group id="patient-management" label="Patient Management" :active="request()->routeIs('patients.*', 'patient.information-form')">
+            <x-sidebar-group id="patient-management" label="Patient Management" :active="request()->routeIs('patients.*', 'families.*', 'patient.information-form')">
                 <x-slot:icon><circle cx="9" cy="8" r="3" /><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M17 15a5 5 0 0 1 4 4v2" /></x-slot:icon>
-                <x-sidebar-link :href="route('patients.index')" :active="request()->routeIs('patients.*')" label="Patient Record" :nested="true">
+                <x-sidebar-link :href="route('patients.index')" :active="request()->routeIs('patients.*', 'families.*')" label="Patient Record" :nested="true">
                     <path d="M4 4h16v16H4zM8 8h8M8 12h8M8 16h4" />
                 </x-sidebar-link>
                 @can('queue-register')

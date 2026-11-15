@@ -3,10 +3,12 @@
 namespace App\Livewire;
 
 use App\Models\PatientInformation;
+use App\Services\PatientCategories;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -24,9 +26,121 @@ class PatientInformationForm extends Component
     #[Locked]
     public ?int $registeredPatientId = null;
 
+    #[Locked]
+    public bool $showCategorySelection = true;
+
+    #[Locked]
+    public int $registrationStep = 1;
+
+    #[Locked]
+    public ?int $registrationHouseholdId = null;
+
+    public function selectCategory(string $category): void
+    {
+        Gate::authorize('queue-register');
+        abort_if($this->registeredPatientId !== null, 409);
+        validator(['patientCategory' => $category], ['patientCategory' => ['required', Rule::in(array_keys(app(PatientCategories::class)->choices()))]])->validate();
+        if ($this->patientCategory !== $category) {
+            $this->patientCategory = $category;
+            $this->updatedPatientCategory();
+        }
+        $this->showCategorySelection = false;
+        $this->registrationStep = 1;
+        $this->showReview = false;
+        $this->resetValidation();
+    }
+
+    public function backToCategories(): void
+    {
+        Gate::authorize('queue-register');
+        $this->showCategorySelection = true;
+        $this->showReview = false;
+    }
+
+    public function continueRegistration(): void
+    {
+        Gate::authorize('queue-register');
+        if ($this->registrationStep >= 4) {
+            $this->reviewDetails();
+
+            return;
+        }
+        if ($this->registrationStep === 1) {
+            $this->validate();
+            $this->validateSelectedCategory();
+        } else {
+            $this->validateRegistrationHousehold();
+            $this->validateRegistrationProfile(false);
+        }
+        $this->registrationStep++;
+    }
+
+    public function submitRegistration(): void
+    {
+        if ($this->showReview) {
+            $this->savePatient();
+        } else {
+            $this->continueRegistration();
+        }
+    }
+
+    public function goToRegistrationStep(int $step): void
+    {
+        Gate::authorize('queue-register');
+        abort_unless($step >= 1 && $step < $this->registrationStep, 422);
+        $this->registrationStep = $step;
+        $this->showReview = false;
+    }
+
+    public function reviewDetails(): void
+    {
+        Gate::authorize('queue-register');
+        $this->validate();
+        $this->validateSelectedCategory();
+        $this->validateRegistrationHousehold();
+        $this->validateRegistrationProfile();
+        $this->showReview = true;
+        $this->registrationStep = 5;
+    }
+
+    public function returnToDetails(): void
+    {
+        Gate::authorize('queue-register');
+        $this->showReview = false;
+        $this->registrationStep = 4;
+    }
+
+    private function validateSelectedCategory(): void
+    {
+        app(PatientCategories::class)->validate($this->patientCategory, $this->categoryOverrideReason, $this->birthdate, true);
+        if ($this->categoryMismatch()) {
+            Gate::authorize('patient-category-override');
+        }
+    }
+
+    private function validateRegistrationHousehold(): void
+    {
+        if ($this->registrationHouseholdId === null) {
+            return;
+        }
+        validator($this->only(['householdMode', 'householdId']), [
+            'householdMode' => ['required', Rule::in(['existing'])],
+            'householdId' => ['required', 'integer', Rule::in([$this->registrationHouseholdId]), 'exists:households,id'],
+        ], [
+            'householdMode.in' => 'Use the preselected household when adding a family member.',
+            'householdId.in' => 'Use the preselected household when adding a family member.',
+        ])->validate();
+    }
+
     public function mount(): void
     {
         $this->registration_date = now('Asia/Manila')->toDateString();
+        if (request()->has('household')) {
+            Gate::authorize('queue-register');
+            $validated = validator(['household' => request()->query('household')], ['household' => ['required', 'integer', 'exists:households,id']])->validate();
+            $this->registrationHouseholdId = (int) $validated['household'];
+            $this->selectHousehold($this->registrationHouseholdId);
+        }
     }
 
     public function savePatient(): void
@@ -37,6 +151,9 @@ class PatientInformationForm extends Component
         }
 
         $this->validate();
+        $this->validateSelectedCategory();
+        $this->validateRegistrationHousehold();
+        $this->validateRegistrationProfile();
 
         try {
             DB::transaction(function (): void {
@@ -54,7 +171,7 @@ class PatientInformationForm extends Component
                     'registration_date' => $this->registration_date,
                     'status' => 'Active',
                 ]);
-
+                $this->saveRegistrationProfile($this->patient);
             }, 5);
         } catch (QueryException $exception) {
             report($exception);
@@ -76,6 +193,9 @@ class PatientInformationForm extends Component
     {
         Gate::authorize('queue-register');
         $this->resetValidation();
+        $this->resetRegistrationProfile();
+        $this->showCategorySelection = true;
+        $this->registrationStep = 1;
         $this->registeredPatientId = null;
         unset($this->registeredPatient);
         session()->forget('success');
@@ -95,6 +215,9 @@ class PatientInformationForm extends Component
         $this->sex = 'Male';
         $this->registration_date = now('Asia/Manila')->toDateString();
         $this->patient = null;
+        if ($this->registrationHouseholdId !== null) {
+            $this->selectHousehold($this->registrationHouseholdId);
+        }
     }
 
     #[Computed]

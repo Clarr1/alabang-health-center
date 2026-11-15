@@ -4,7 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PatientInformation extends Model
 {
@@ -30,6 +32,10 @@ class PatientInformation extends Model
         'emergency_contact',
         'registration_date',
         'status',
+        'household_id',
+        'household_relationship',
+        'patient_category',
+        'category_override_reason',
     ];
 
     protected function casts(): array
@@ -53,6 +59,31 @@ class PatientInformation extends Model
     public function followUps(): HasMany
     {
         return $this->hasMany(FollowUp::class, 'patient_id', 'patient_id');
+    }
+
+    public function household(): BelongsTo
+    {
+        return $this->belongsTo(Household::class);
+    }
+
+    public function registrationProfile(): HasOne
+    {
+        return $this->hasOne(PatientProfile::class, 'patient_id', 'patient_id');
+    }
+
+    public function conditions(): HasMany
+    {
+        return $this->hasMany(PatientCondition::class, 'patient_id', 'patient_id');
+    }
+
+    public function immunizationDoses(): HasMany
+    {
+        return $this->hasMany(ImmunizationDose::class, 'patient_id', 'patient_id');
+    }
+
+    public function profileAudits(): HasMany
+    {
+        return $this->hasMany(PatientProfileAudit::class, 'patient_id', 'patient_id');
     }
 
     public function queues(): HasMany

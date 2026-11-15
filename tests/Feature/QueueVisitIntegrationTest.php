@@ -18,6 +18,7 @@ it('runs registration through vital signs consultation and completed medical rec
     $staff = User::factory()->create();
     $doctor = User::factory()->create(['role' => 'Doctor']);
     Livewire::actingAs($staff)->test(PatientInformationForm::class)
+        ->call('selectCategory', 'Adult')
         ->set('first_name', 'Maria')->set('last_name', 'Santos')
         ->set('birthdate', '1990-01-01')->set('age', 36)->set('sex', 'Female')
         ->set('address', 'Alabang')->call('savePatient')->assertHasNoErrors()

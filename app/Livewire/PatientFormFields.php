@@ -12,6 +12,8 @@ use Livewire\Attributes\Computed;
 
 trait PatientFormFields
 {
+    use RegistrationProfileFields;
+
     public $first_name = '';
 
     public $middle_name = '';
@@ -40,9 +42,12 @@ trait PatientFormFields
     {
         if ($property === 'birthdate') {
             $this->calculatePatientAge();
+            unset($this->profileSections, $this->suggestedCategory, $this->categoryMismatch);
+            $allowedFields = array_keys(array_merge(...array_values($this->profileSections())));
+            $this->profile = array_intersect_key($this->profile, array_flip($allowedFields));
         }
 
-        if (array_key_exists($property, $this->rules())) {
+        if (array_key_exists($property, $this->rules()) || str_contains($property, '.') || in_array($property, ['patientCategory', 'categoryOverrideReason', 'householdMode', 'householdId', 'householdRelationship', 'selectedConditions', 'otherCondition'], true)) {
             $this->showReview = false;
         }
     }
@@ -51,6 +56,7 @@ trait PatientFormFields
     {
         Gate::authorize('queue-register');
         $this->validate();
+        $this->validateRegistrationProfile();
         $this->showReview = true;
     }
 
@@ -138,7 +144,7 @@ trait PatientFormFields
             'sex' => ['required', 'in:Male,Female'],
             'address' => ['required', 'string'],
             'surveillance_residence' => ['required', 'in:Unverified,Alabang,Outside Scope'],
-            'contact_number' => ['nullable', 'string', 'max:20'],
+            'contact_number' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+() .-]+$/'],
             'emergency_contact' => ['nullable', 'string', 'max:255'],
             'registration_date' => ['bail', 'required', 'date_format:Y-m-d', ...($this->parsedPatientBirthdate() !== null ? ['after_or_equal:birthdate'] : []), 'before_or_equal:'.now('Asia/Manila')->toDateString()],
         ];

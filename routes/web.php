@@ -5,6 +5,8 @@ use App\Http\Controllers\ProfileController;
 use App\Livewire\DetectionSettings;
 use App\Livewire\DiagnosisManagement;
 use App\Livewire\EditPatient;
+use App\Livewire\FamilyRecord;
+use App\Livewire\FamilyTable;
 use App\Livewire\FollowUps;
 use App\Livewire\MedicalRecordDetails;
 use App\Livewire\MedicalRecordsForm;
@@ -38,6 +40,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/queues/{queue_id}/consultation/{patient_id}', MedicalRecordsForm::class)->middleware('can:queue-consult')->name('queues.consultation');
     Route::get('/patient-information-form', PatientInformationForm::class)->middleware('can:queue-register')->name('patient.information-form');
     Route::get('/patients', PatientTable::class)->name('patients.index');
+    Route::get('/patients/families', FamilyTable::class)->middleware('can:queue-view')->name('families.index');
+    Route::get('/patients/families/{household}', FamilyRecord::class)->middleware('can:queue-view')->name('families.show');
+    Route::get('/patients/families/{familyHouseholdId}/members/{record}', MedicalRecordDetails::class)->whereNumber('familyHouseholdId')->middleware('can:queue-view')->name('families.members.show');
     Route::get('/patients/{patient}/edit', EditPatient::class)->middleware('can:queue-register')->name('patients.edit');
     Route::get('/patients/{patient}/card', [PatientCardController::class, 'show'])->name('patients.card.show');
     Route::get('/patients/{patient}/card/pdf', [PatientCardController::class, 'download'])->name('patients.card.download');

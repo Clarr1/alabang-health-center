@@ -16,6 +16,7 @@ use App\Models\PatientInformation;
 use App\Models\Queue;
 use App\Models\Symptom;
 use App\Models\User;
+use App\Services\PatientCategories;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -87,6 +88,8 @@ it('processes fifteen registered synthetic patients and five repeat visits witho
 
         foreach ($roster as $index => [$firstName, $lastName, $age]) {
             $registration = Livewire::actingAs($staff[$index % 2])->test(PatientInformationForm::class);
+            $registration->call('selectCategory', app(PatientCategories::class)->suggest(now('Asia/Manila')->subYears($age)->toDateString()) ?? 'Child')
+                ->set('categoryOverrideReason', 'Synthetic age exception for workflow test coverage.');
             if ($index === 0) {
                 $registration->call('savePatient')->assertHasErrors(['first_name', 'last_name', 'birthdate', 'address'])
                     ->assertSee('The first name field is required.');

@@ -21,17 +21,26 @@
         activeTab: 'visits',
         selectTab(tab) { this.activeTab = tab; this.$nextTick(() => this.$refs[tab + 'Tab'].focus()) },
         moveTab(offset) { const tabs = ['visits', 'vitals', 'followups']; this.selectTab(tabs[(tabs.indexOf(this.activeTab) + offset + tabs.length) % tabs.length]) }
-     }" class="relative mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8 lg:py-8">
+     }" @class(['relative mx-auto max-w-[1440px] text-ink', 'px-4 py-7 sm:px-7 lg:px-8 lg:py-8' => ! $embedded])>
     @php
         $latestVital = $patient->vitalSigns->first();
         $latestVisit = $patient->medicalRecords->first();
         $followUps = $patient->medicalRecords->whereNotNull('follow_up_date')->sortByDesc('follow_up_date');
     @endphp
     <img src="{{ asset('images/barangay-alabang.png') }}" alt="" aria-hidden="true" class="pointer-events-none absolute right-4 top-5 w-[440px] max-w-[70%] rounded-full opacity-[0.035]">
+    @if ($familyHouseholdId !== null && ! $embedded)
+        <nav aria-label="Breadcrumb" class="relative mb-4 text-xs text-muted"><ol class="flex flex-wrap gap-2"><li><a href="{{ route('patients.index') }}" wire:navigate>Patient Record</a></li><li>/</li><li><a href="{{ route('families.index') }}" wire:navigate>Family Records</a></li><li>/</li><li><a href="{{ $backUrl }}" wire:navigate>{{ $patient->household->label }} ({{ $patient->household->family_number }})</a></li><li>/</li><li aria-current="page">{{ $patient->first_name }} {{ $patient->last_name }}</li></ol></nav>
+    @endif
     <div class="relative mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div><h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">Patient medical record</h1><p class="mt-2 text-sm text-muted">Longitudinal history &middot; Access restricted to care-related work.</p></div>
+        <div>
+            @if ($embedded)<h3 class="text-xl font-semibold tracking-tight">Patient medical record</h3>@else<h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">Patient medical record</h1>@endif
+            <p class="mt-2 text-sm text-muted">Longitudinal history &middot; Access restricted to care-related work.</p>
+        </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ $backUrl }}" wire:navigate class="patient-button bg-white text-xs">Back to Medical Records</a>
+            <a href="{{ $backUrl }}" wire:navigate class="patient-button bg-white text-xs">{{ $familyHouseholdId === null ? 'Back to Medical Records' : 'Back to Family Record' }}</a>
+            @if ($familyHouseholdId === null && $patient->household)
+                <a href="{{ route('families.show', $patient->household) }}" wire:navigate class="patient-button bg-white text-xs">View Family Record &middot; {{ $patient->household->family_number }}</a>
+            @endif
             @can('queue-consult')
                 <a href="{{ route('doctors-consultation.index') }}" wire:navigate class="patient-button border-transparent bg-brand-pink text-xs hover:bg-[#f598ba]">
                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -73,7 +82,7 @@
             </section>
             <section class="patient-card" aria-labelledby="relevant-history-title">
                 <h2 id="relevant-history-title" class="text-sm font-semibold">Relevant history</h2>
-                <p class="mt-4 text-xs leading-relaxed">Allergy and chronic-condition information is not recorded separately.</p>
+                <p class="mt-4 text-xs leading-relaxed">Reported conditions and registration history are available in the patient registration profile below.</p>
                 @if ($latestVisit)
                     <p class="mt-4 break-words text-xs leading-relaxed"><span class="font-medium">Previous visit:</span> {{ $latestVisit->diagnosis ?: 'Not provided.' }}, {{ $latestVisit->consultation_date?->format('d M Y') ?: 'Not provided.' }}</p>
                 @else
@@ -158,6 +167,22 @@
             </section>
 
             <section x-cloak x-show="activeTab === 'followups'" id="record-followups-panel" role="tabpanel" aria-labelledby="record-followups-tab" class="patient-card mt-5">
+                <h2 class="text-base font-semibold">Scheduled follow-ups</h2>
+                <div class="mb-6 mt-4 divide-y divide-line">
+                    @forelse ($patient->followUps as $appointment)
+                        <article wire:key="scheduled-follow-up-{{ $appointment->id }}" class="py-4 first:pt-0 last:pb-0">
+                            <h3 class="text-sm font-semibold">{{ $appointment->scheduled_at->timezone('Asia/Manila')->format('d M Y, h:i A') }} &middot; {{ $appointment->status }}</h3>
+                            <p class="mt-2 whitespace-pre-line break-words text-xs">{{ $appointment->purpose }}</p>
+                            @if ($appointment->consultation)
+                                <p class="mt-2 text-xs text-muted">{{ $appointment->consultation->diagnosis }}</p>
+                                <button type="button" x-on:click="$el.focus(); $dispatch('open-consultation-modal', { id: {{ $appointment->consultation->medical_record_id }} })" class="patient-button mt-3 text-xs">View associated visit</button>
+                            @endif
+                            @can('follow-ups-manage')<a href="{{ route('follow-ups.index', $appointment->consultation ? ['consultation' => $appointment->consultation->medical_record_id] : []) }}" wire:navigate class="patient-button mt-3 text-xs">Manage follow-up</a>@endcan
+                        </article>
+                    @empty
+                        <p class="text-xs text-muted">No scheduled follow-ups.</p>
+                    @endforelse
+                </div>
                 <h2 class="text-base font-semibold">Recorded follow-ups</h2>
                 <p class="mt-1 text-[11px] text-muted">Dates documented in saved consultations.</p>
                 <div class="mt-4 divide-y divide-line">
@@ -170,6 +195,8 @@
             </section>
         </div>
     </div>
+
+            <livewire:patient-profile-form :patient-id="$patient->patient_id" :family-household-id="$familyHouseholdId" :key="'registration-profile-'.($familyHouseholdId ?? 'individual').'-'.$patient->patient_id" />
 
             @foreach ($patient->medicalRecords as $record)
                 @php $vitalSign = $record->vitalSign; @endphp

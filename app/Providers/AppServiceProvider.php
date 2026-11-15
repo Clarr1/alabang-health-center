@@ -12,6 +12,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Gate::define('patient-profile-manage', fn (User $user): bool => $user->is_active && $user->hasAuthorizedRole());
+        Gate::define('patient-sensitive', fn (User $user): bool => $user->is_active && in_array($user->role, ['Admin', 'Doctor'], true));
+        Gate::define('patient-category-override', fn (User $user): bool => $user->is_active && in_array($user->role, ['Admin', 'Local Health Unit Staff'], true));
         Gate::define('surveillance-view', fn (User $user): bool => $user->is_active && $user->hasAuthorizedRole());
         Gate::define('surveillance-review', fn (User $user): bool => $user->is_active && in_array($user->role, ['Admin', 'Doctor'], true));
         Gate::define('surveillance-manage', fn (User $user): bool => $user->is_active && $user->role === 'Admin');

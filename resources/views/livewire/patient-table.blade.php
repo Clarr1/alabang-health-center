@@ -14,6 +14,7 @@
         @endcan
     </div>
 
+    <x-patient-record-nav />
     <section class="patient-card mb-6" aria-label="Patient search and filters">
         <form wire:submit="$refresh">
             <label for="patient-table-search" class="patient-label">Search by name or unique patient ID</label>
@@ -76,7 +77,10 @@
                         <tr>
                             <th scope="col" class="px-3 py-3 font-semibold">Patient / Unique ID</th>
                             <th scope="col" class="px-3 py-3 font-semibold">Age / Sex</th>
+                            <th scope="col" class="px-3 py-3 font-semibold">Family Number</th>
                             <th scope="col" class="px-3 py-3 font-semibold" >Barangay / Address</th>
+                            <th scope="col" class="px-3 py-3 font-semibold">Contact</th>
+                            <th scope="col" class="px-3 py-3 font-semibold">Registered</th>
                             <th scope="col" class="px-3 py-3 font-semibold">Last visit</th>
                             <th scope="col" class="px-3 py-3 font-semibold">Status</th>
                             <th scope="col" class="px-3 py-3 font-semibold">Actions</th>
@@ -90,7 +94,10 @@
                                     <span class="mt-1 block text-[11px] text-muted">{{ $patient->patient_id }}</span>
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-4">{{ $patient->age ?? '—' }} · {{ $patient->sex ?: 'Not available' }}</td>
+                                <td class="whitespace-nowrap px-3 py-4">@if ($patient->household)@can('queue-view')<a href="{{ route('families.show', $patient->household) }}" wire:navigate class="underline underline-offset-4">{{ $patient->household->family_number }}</a>@else{{ $patient->household->family_number }}@endcan @else Not assigned @endif</td>
                                 <td class="max-w-[180px] px-3 py-4"><span class="line-clamp-2" title="{{ $patient->address }}">{{ $patient->address ?: 'Not available' }}</span></td>
+                                <td class="whitespace-nowrap px-3 py-4">{{ $patient->contact_number ?: 'Not provided.' }}</td>
+                                <td class="whitespace-nowrap px-3 py-4">{{ $patient->registration_date ? \Illuminate\Support\Carbon::parse($patient->registration_date)->format('d M Y') : 'Not provided.' }}</td>
                                 <td class="whitespace-nowrap px-3 py-4">{{ $patient->last_visit_at ? \Illuminate\Support\Carbon::parse($patient->last_visit_at, 'Asia/Manila')->format('d M Y') : 'No visits yet' }}</td>
                                 <td class="px-3 py-4"><span class="inline-block rounded bg-[#e9ebf0] px-2 py-1 text-[11px] font-medium">{{ $patient->status ?: 'Not available' }}</span></td>
                                 <td class="px-3 py-3">
@@ -104,7 +111,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="px-4 py-12 text-center">
+                            <tr><td colspan="9" class="px-4 py-12 text-center">
                                 <p class="text-sm font-semibold">No patients found.</p>
                                 <p class="mt-2 text-xs text-muted">Try another name or patient ID, or adjust the filters.</p>
                                 @if ($search !== '' || $recordStatus !== '' || $sex !== '' || $lastVisit !== '')

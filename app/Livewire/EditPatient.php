@@ -3,8 +3,10 @@
 namespace App\Livewire;
 
 use App\Models\PatientInformation;
+use App\Services\PatientRegistration;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -29,6 +31,7 @@ class EditPatient extends Component
         $this->patientId = $patient->patient_id;
         $this->fill($patient->only(array_keys($this->rules())));
         $this->calculatePatientAge();
+        $this->initializeRegistrationProfile($patient);
     }
 
     public function rules(): array
@@ -44,10 +47,16 @@ class EditPatient extends Component
         Gate::authorize('queue-register');
 
         $validated = $this->validate();
+        $this->validateRegistrationProfile();
         $patient = PatientInformation::findOrFail($this->patientId);
 
         try {
-            $patient->update($validated);
+            DB::transaction(function () use ($patient, $validated): void {
+                $before = $patient->getAttributes();
+                $patient->update($validated);
+                $this->saveRegistrationProfile($patient);
+                app(PatientRegistration::class)->audit($patient, 'personal-information-updated', ['before' => $before, 'after' => $patient->getAttributes()]);
+            }, 5);
         } catch (QueryException $exception) {
             report($exception);
             $this->addError('patient', 'Unable to update this patient. Please try again.');
