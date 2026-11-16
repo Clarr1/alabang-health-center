@@ -153,10 +153,10 @@ it('keeps the patient record link active when editing an existing patient', func
 });
 
 it('keeps account access and csrf protected logout at the bottom of the sidebar', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['name' => "Vidal O'Kon"]);
     $response = $this->actingAs($user)->get(route('dashboard'))->assertOk();
     preg_match('/<aside[^>]*id="app-sidebar".*?<\/aside>/s', $response->getContent(), $sidebar);
-    expect($sidebar[0])->toContain($user->name)->toContain($user->email)
+    expect($sidebar[0])->toContain(e($user->name))->toContain(e($user->email))
         ->toContain('href="'.route('profile.edit').'"')
         ->toContain('method="POST" action="'.route('logout').'"')
         ->toContain('name="_token"')->toContain('aria-label="Log Out"');

@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\PatientInformation;
 use App\Models\Queue;
 use App\Models\VitalSign;
+use App\Services\IndividualTreatmentRecord;
 use App\Services\QueueWorkflow;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
@@ -155,7 +156,7 @@ class VitalSignsForm extends Component
             'patient_id' => $this->patient_id,
             'recorded_by' => Auth::id(),
             ...$this->vitalSignValues(),
-            'recorded_at' => $queue !== null ? now() : ($this->recorded_at ?: now()),
+            'recorded_at' => now(),
         ]);
 
         try {
@@ -166,7 +167,10 @@ class VitalSignsForm extends Component
                     $save,
                 );
             } else {
-                $save();
+                DB::transaction(function () use ($save): void {
+                    $record = $save();
+                    IndividualTreatmentRecord::audit((int) $record->patient_id, null, 'vital-signs-recorded', $record->toArray());
+                });
             }
         } catch (QueryException $exception) {
             report($exception);
@@ -191,6 +195,7 @@ class VitalSignsForm extends Component
         $this->reset([
             'queueId', 'patient_id', 'patient', 'blood_pressure', 'temperature',
             'pulse_rate', 'respiratory_rate', 'height', 'weight', 'bmi', 'patientSearch',
+            'oxygen_saturation', 'waistline', 'nutritional_status', 'nutrition_assessment_method',
         ]);
         $this->resetErrorBag();
         $this->recorded_at = now('Asia/Manila')->toDateString();

@@ -18,9 +18,9 @@
                     @can('surveillance-manage')
                         <div class="mt-3 flex gap-2"><button type="button" wire:click="edit({{ $category->id }})" class="patient-button text-xs">Edit / new version</button><button type="button" wire:click="toggle({{ $category->id }})" wire:confirm="Change whether this syndrome is monitored? Saved classifications and alerts will be preserved." class="patient-button text-xs">{{ $category->is_active ? 'Deactivate' : 'Activate' }}</button></div>
                     @endcan
-                    <details class="mt-3 text-xs"><summary class="cursor-pointer font-medium">Definition versions and approval history</summary>
+                    <details wire:ignore.self class="mt-3 text-xs"><summary class="cursor-pointer font-medium">Definition versions and approval history</summary>
                         @forelse ($category->rules as $rule)
-                            <div class="mt-3 rounded-lg bg-blush p-3">
+                            <div wire:key="syndrome-rule-{{ $rule->id }}" class="mt-3 rounded-lg bg-blush p-3">
                                 <p class="font-semibold">Version {{ $rule->version }} · {{ $rule->approved_at ? 'Approved' : 'Unreviewed' }}</p>
                                 <p class="mt-1">Match at least {{ $rule->minimum_matches }} of: {{ $rule->symptoms->map(fn ($symptom) => $symptom->pivot->symptom_name)->join(', ') }}</p>
                                 <p class="mt-1">Applies from {{ $rule->applies_from->setTimezone('Asia/Manila')->format('d M Y') }} to previously unclassified encounters.</p>
@@ -43,7 +43,7 @@
                 <div><label for="syndrome-name" class="patient-label">Category name</label><input id="syndrome-name" wire:model="name" required maxlength="255" class="patient-input w-full"></div>
                 <div><label for="syndrome-description" class="patient-label">Description</label><textarea id="syndrome-description" wire:model="description" maxlength="5000" class="patient-input w-full"></textarea></div>
                 <label class="flex items-center gap-2 text-sm"><input type="checkbox" wire:model="isActive" class="rounded"> Monitor this category</label>
-                <fieldset><legend class="patient-label">Structured symptom mappings</legend><div class="mt-2 grid gap-2 sm:grid-cols-2">@foreach ($symptoms as $symptom)<label class="flex items-center gap-2 text-sm"><input type="checkbox" wire:model="symptomIds" value="{{ $symptom->id }}" class="rounded">{{ $symptom->name }}</label>@endforeach</div></fieldset>
+                <fieldset><legend class="patient-label">Structured symptom mappings</legend><div class="mt-2 grid gap-2 sm:grid-cols-2">@foreach ($symptoms as $symptom)<label wire:key="syndrome-symptom-{{ $symptom->id }}" class="flex items-center gap-2 text-sm"><input type="checkbox" wire:model="symptomIds" value="{{ $symptom->id }}" class="rounded">{{ $symptom->name }}</label>@endforeach</div></fieldset>
                 <div class="grid gap-4 sm:grid-cols-2"><div><label for="minimum-matches" class="patient-label">Minimum distinct symptoms required</label><input id="minimum-matches" type="number" min="1" max="50" wire:model="minimumMatches" required class="patient-input w-full"></div><div><label for="applies-from" class="patient-label">Applies from (Manila date)</label><input id="applies-from" type="date" wire:model="appliesFrom" max="{{ now('Asia/Manila')->toDateString() }}" required class="patient-input w-full"></div></div>
                 <p class="text-xs text-muted">A past date permits classification of reliable, previously unclassified historical records after approval. A changed rule needs sufficient history under that version before statistical alerts resume.</p>
                 <div><label for="rule-rationale" class="patient-label">Clinical rationale / review requirements</label><textarea id="rule-rationale" wire:model="rationale" required minlength="10" maxlength="5000" rows="3" class="patient-input w-full"></textarea></div>

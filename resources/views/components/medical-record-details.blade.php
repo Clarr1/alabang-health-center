@@ -43,6 +43,8 @@
                     </dl>
                 </section>
 
+                <x-itr-record-sections :record="$record" />
+
                 <section class="rounded-lg border border-gray-200 p-4">
                     <h3 class="mb-3 text-sm font-semibold text-gray-900">Associated Vital Signs</h3>
                     <dl class="grid gap-3 text-sm sm:grid-cols-2">
@@ -54,6 +56,9 @@
                         <div><dt class="text-gray-500">Respiratory rate</dt><dd class="text-gray-900">{{ $record->vitalSign?->respiratory_rate ?? 'Not available' }}</dd></div>
                         <div><dt class="text-gray-500">Height</dt><dd class="text-gray-900">{{ $record->vitalSign?->height !== null ? $record->vitalSign->height.' cm' : 'Not available' }}</dd></div>
                         <div><dt class="text-gray-500">Weight</dt><dd class="text-gray-900">{{ $record->vitalSign?->weight !== null ? $record->vitalSign->weight.' kg' : 'Not available' }}</dd></div>
+                        <div><dt class="text-gray-500">Oxygen saturation (%)</dt><dd>{{ $record->vitalSign?->oxygen_saturation ?? 'Not recorded' }}</dd></div>
+                        <div><dt class="text-gray-500">Waistline (cm)</dt><dd>{{ $record->vitalSign?->waistline ?? 'Not recorded' }}</dd></div>
+                        <div><dt class="text-gray-500">Nutritional Status</dt><dd>{{ $record->vitalSign?->nutritional_status ?: 'Not recorded' }} ({{ $record->vitalSign?->nutrition_assessment_method ?: 'Method not recorded' }})</dd></div>
                         <div><dt class="text-gray-500">BMI</dt><dd class="text-gray-900">{{ $record->vitalSign?->bmi ?? 'Not available' }}</dd></div>
                     </dl>
                 </section>

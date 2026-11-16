@@ -80,7 +80,7 @@ it('keeps consultation inputs on validation and database failures and supports r
     $doctor = User::factory()->create(['role' => 'Doctor']);
     $queue = consultationVisit($doctor);
     $component = Livewire::actingAs($doctor)->test(MedicalRecordsForm::class)->call('startConsultation', $queue->queue_id)
-        ->set('diagnosis', 'Allergies')->call('saveMedicalRecord')->assertHasErrors(['treatment', 'consultation_notes'])
+        ->set('diagnosis', 'Allergies')->call('saveMedicalRecord')->assertHasErrors('treatment')->assertHasNoErrors('consultation_notes')
         ->assertSet('diagnosis', 'Allergies')->assertSet('queueId', $queue->queue_id)
         ->set('treatment', 'Rest')->set('consultation_notes', 'Sneezing')
         ->set('follow_up_date', '2000-01-01')->call('saveMedicalRecord')->assertHasErrors('follow_up_date');

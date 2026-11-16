@@ -4,7 +4,7 @@
     $value = $values[$key] ?? null;
 @endphp
 @if ($isVisible)
-    <div class="min-w-0">
+    <div wire:key="registration-field-{{ $fieldId }}" class="min-w-0">
         @if ($reviewing)
             <dt class="patient-label">{{ $field['label'] }}</dt><dd class="mt-1 whitespace-pre-line break-words text-sm">{{ filled($value) ? $value : 'Not provided.' }}</dd>
         @else

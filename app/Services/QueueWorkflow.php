@@ -154,17 +154,18 @@ class QueueWorkflow
                 throw ValidationException::withMessages(['queue' => 'Select the current unsaved vital signs visit.']);
             }
             $record = $save($queue);
+            IndividualTreatmentRecord::audit($patientId, $queueId, 'vital-signs-recorded', $record->toArray());
             $this->transition($queueId, 'Vital Signs', 'Ready for Consultation');
 
             return $record;
         }, 5);
     }
 
-    public function saveMedicalRecord(int $queueId, int $patientId, int $vitalId, Closure $save): MedicalRecord
+    public function saveMedicalRecord(int $queueId, int $patientId, int $vitalId, Closure $save, ?int $version = null): MedicalRecord
     {
         Gate::authorize('queue-consult');
 
-        return DB::transaction(function () use ($queueId, $patientId, $vitalId, $save): MedicalRecord {
+        return DB::transaction(function () use ($queueId, $patientId, $vitalId, $save, $version): MedicalRecord {
             $queue = Queue::query()->lockForUpdate()->findOrFail($queueId);
             $this->assertPatient($queue, $patientId);
             $this->assertStatus($queue, 'In Consultation');
@@ -177,13 +178,42 @@ class QueueWorkflow
                 throw ValidationException::withMessages(['vital_signs_id' => 'Use the vital signs recorded for this queue visit.']);
             }
 
+            $this->assertConsultationVersion($queue, $version);
             $record = $save($queue);
-            $record->update(['encounter_at' => $record->consultation_date->toDateString() === $queue->queue_date->toDateString() ? now() : null]);
+            $record->update(['consultation_date' => $queue->queue_date, 'encounter_at' => $queue->created_at]);
+            $queue->forceFill(['consultation_draft' => null, 'draft_saved_at' => null, 'consultation_version' => $queue->consultation_version + 1])->save();
+            IndividualTreatmentRecord::audit($patientId, $queueId, 'consultation-completed', $record->load('symptoms')->toArray());
             $this->transition($queueId, 'In Consultation', 'Completed');
             app(SyndromeClassifier::class)->classify($record->load('queue'));
 
             return $record;
         }, 5);
+    }
+
+    /** @param array<string, mixed> $draft */
+    public function saveConsultationDraft(int $queueId, int $patientId, int $vitalId, int $version, array $draft): Queue
+    {
+        Gate::authorize('queue-consult');
+
+        return DB::transaction(function () use ($queueId, $patientId, $vitalId, $version, $draft): Queue {
+            $queue = $this->resumeConsultation($queueId);
+            $this->assertPatient($queue, $patientId);
+            $this->assertConsultationVersion($queue, $version);
+            if ($queue->medicalRecord()->exists() || ! $queue->vitalSign()->where('patient_id', $patientId)->whereKey($vitalId)->exists()) {
+                throw ValidationException::withMessages(['queue' => 'Select the current unsaved consultation and its vital signs.']);
+            }
+            $queue->forceFill(['consultation_draft' => $draft, 'draft_saved_at' => now(), 'consultation_version' => $version + 1])->save();
+            IndividualTreatmentRecord::audit($patientId, $queueId, 'consultation-draft-saved', ['version' => $version + 1, 'draft' => $draft]);
+
+            return $queue;
+        }, 5);
+    }
+
+    private function assertConsultationVersion(Queue $queue, ?int $version): void
+    {
+        if ($version !== null && $queue->consultation_version !== $version) {
+            throw ValidationException::withMessages(['queue' => 'This consultation was saved in another window. Reopen it before saving again.']);
+        }
     }
 
     public function resumeConsultation(int $queueId): Queue

@@ -55,7 +55,7 @@ class MedicalRecordDetails extends Component
                     }
                     $measurements->with('recordedBy');
                 }, 'queue', 'symptoms'])
-                    ->orderByDesc('consultation_date')->orderByDesc('medical_record_id');
+                    ->orderByDesc('consultation_date')->orderByRaw('COALESCE(encounter_at, created_at) DESC')->orderByDesc('medical_record_id');
             },
             'vitalSigns' => function (HasMany $measurements): void {
                 $measurements->with('recordedBy')->orderByDesc('recorded_at')->orderByDesc('vital_id');

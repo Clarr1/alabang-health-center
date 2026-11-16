@@ -15,7 +15,7 @@
                 <div><dt class="text-xs text-muted">{{ $label }}</dt><dd class="mt-1 whitespace-pre-line break-words">{{ $value ?? 'Not recorded' }}</dd></div>
             @endforeach
         </dl>
-        <details class="mt-5 border-t border-line pt-4"><summary class="cursor-pointer text-sm font-semibold">Shared living conditions</summary><dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <details wire:ignore.self class="mt-5 border-t border-line pt-4"><summary class="cursor-pointer text-sm font-semibold">Shared living conditions</summary><dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @foreach (\App\Services\PatientRegistrationSchema::householdFields() as $key => $field)
                 @continue(in_array($key, ['label', 'address'], true))
                 @if (\App\Services\PatientRegistrationSchema::visible($key, \App\Services\PatientRegistrationSchema::householdFields(), $household->getAttributes()))<div><dt class="text-xs text-muted">{{ $field['label'] }}</dt><dd class="mt-1 whitespace-pre-line break-words text-sm">{{ filled($household->{$key}) ? ($key === 'average_income' ? '₱'.number_format((float) $household->{$key}, 2) : $household->{$key}) : 'Not provided.' }}</dd></div>@endif

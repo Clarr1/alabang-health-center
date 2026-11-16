@@ -23,6 +23,10 @@ class VitalSign extends Model
         'height',
         'weight',
         'bmi',
+        'oxygen_saturation',
+        'waistline',
+        'nutritional_status',
+        'nutrition_assessment_method',
         'recorded_at',
     ];
 

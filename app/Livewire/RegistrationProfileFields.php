@@ -10,6 +10,7 @@ use App\Services\PatientRegistrationSchema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
@@ -98,6 +99,10 @@ trait RegistrationProfileFields
 
     public array $newDoses = [];
 
+    /** @var array<int, string> */
+    #[Locked]
+    public array $newDoseKeys = [];
+
     #[Locked]
     public int $profileVersion = 0;
 
@@ -145,6 +150,7 @@ trait RegistrationProfileFields
     {
         Gate::authorize('patient-profile-manage');
         if (count($this->newDoses) < 30) {
+            $this->newDoseKeys[] = (string) Str::uuid();
             $this->newDoses[] = ['vaccine_name' => '', 'other_vaccine' => '', 'schedule' => '', 'other_schedule' => '', 'dose' => '', 'status' => 'Pending', 'administered_at' => '', 'administered_by' => '', 'remarks' => '', 'supersedes_id' => null];
         }
         $this->showReview = false;
@@ -153,7 +159,8 @@ trait RegistrationProfileFields
     public function removeDose(int $index): void
     {
         Gate::authorize('patient-profile-manage');
-        unset($this->newDoses[$index]);
+        unset($this->newDoses[$index], $this->newDoseKeys[$index]);
+        $this->newDoseKeys = array_values($this->newDoseKeys);
         $this->newDoses = array_values($this->newDoses);
         $this->showReview = false;
     }
@@ -184,6 +191,7 @@ trait RegistrationProfileFields
         $this->selectedConditions = array_values(array_intersect($conditions, PatientRegistrationSchema::CONDITIONS));
         $this->otherCondition = implode('; ', array_diff($conditions, PatientRegistrationSchema::CONDITIONS));
         $this->newDoses = [];
+        $this->newDoseKeys = [];
         $this->transferReason = '';
         $this->updateHousehold = false;
         if (Gate::allows('patient-sensitive')) {
@@ -217,6 +225,6 @@ trait RegistrationProfileFields
 
     protected function resetRegistrationProfile(): void
     {
-        $this->reset(['patientCategory', 'categoryOverrideReason', 'originalPatientCategory', 'profile', 'householdMode', 'householdId', 'householdSearch', 'householdData', 'householdRelationship', 'transferReason', 'updateHousehold', 'selectedConditions', 'otherCondition', 'newDoses', 'profileVersion', 'householdVersion', 'originalHouseholdId']);
+        $this->reset(['patientCategory', 'categoryOverrideReason', 'originalPatientCategory', 'profile', 'householdMode', 'householdId', 'householdSearch', 'householdData', 'householdRelationship', 'transferReason', 'updateHousehold', 'selectedConditions', 'otherCondition', 'newDoses', 'newDoseKeys', 'profileVersion', 'householdVersion', 'originalHouseholdId']);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\PatientInformation;
 use App\Models\VitalSign;
+use App\Services\IndividualTreatmentRecord;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -43,12 +44,14 @@ class PatientVitalSignForm extends PatientInformationForm
         try {
             $patient = DB::transaction(function () use ($validated): PatientInformation {
                 $patient = PatientInformation::create(array_intersect_key($validated, parent::rules()) + ['status' => $this->status]);
-                VitalSign::create([
+                $vital = VitalSign::create([
                     ...$this->vitalSignValues(),
                     'patient_id' => $patient->patient_id,
                     'recorded_by' => auth()->id(),
-                    'recorded_at' => $this->recorded_at,
+                    'recorded_at' => now(),
                 ]);
+
+                IndividualTreatmentRecord::audit((int) $patient->patient_id, null, 'vital-signs-recorded', $vital->toArray());
 
                 return $patient;
             }, 5);
@@ -73,7 +76,7 @@ class PatientVitalSignForm extends PatientInformationForm
     public function resetForm(): void
     {
         parent::resetForm();
-        $this->reset('status', 'blood_pressure', 'temperature', 'pulse_rate', 'respiratory_rate', 'height', 'weight', 'bmi');
+        $this->reset('status', 'blood_pressure', 'temperature', 'pulse_rate', 'respiratory_rate', 'height', 'weight', 'bmi', 'oxygen_saturation', 'waistline', 'nutritional_status', 'nutrition_assessment_method');
         $this->recorded_at = now('Asia/Manila')->format('Y-m-d\TH:i');
     }
 

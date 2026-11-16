@@ -10,7 +10,7 @@
         <select id="household-mode" wire:model.live="householdMode" class="patient-input w-full"><option value="none">No household assigned</option><option value="new">Create a household</option><option value="existing">Select an existing household</option></select>
         @if ($householdMode === 'existing')
             <label for="household-search" class="patient-label mt-4">Search Family Number or household label</label>
-            <input id="household-search" wire:model.live.debounce.300ms="householdSearch" type="search" maxlength="255" class="patient-input w-full">
+            <input id="household-search" x-on:keydown.enter.prevent wire:model.live.debounce.300ms="householdSearch" type="search" maxlength="255" class="patient-input w-full">
             <ul class="mt-2 max-h-48 overflow-y-auto divide-y divide-line rounded border border-line">
                 @forelse ($this->matchingHouseholds as $household)
                     <li wire:key="household-option-{{ $household->id }}"><button type="button" wire:click="selectHousehold({{ $household->id }})" class="w-full px-3 py-3 text-left text-xs {{ $householdId === $household->id ? 'bg-blush font-semibold' : '' }}">{{ $household->family_number }} · {{ $household->label }}<span class="mt-1 block text-muted">{{ $household->address }}</span></button></li>
@@ -30,14 +30,14 @@
             @if ($reviewing || Gate::denies('queue-register'))<p class="text-sm">Relationship: {{ $householdRelationship ?: 'Not provided.' }}</p>
             @else<label for="household-relationship" class="patient-label">Relationship to household (Father, Mother, Child, etc.)</label><input id="household-relationship" wire:model.blur="householdRelationship" maxlength="255" class="patient-input w-full">@endif
         </div>
-        <details class="mt-4" @if ($householdMode === 'new' || $updateHousehold || $reviewing) open @endif>
+        <x-disclosure name="registration-household" :open="$householdMode === 'new' || $updateHousehold || $reviewing" :reveal="$updateHousehold || $reviewing || $errors->has('householdData.*')" class="mt-4">
             <summary class="cursor-pointer text-sm font-semibold">Shared living conditions</summary>
             <dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach ($householdFields as $key => $field)
                     @include('livewire.partials.registration-field', ['prefix' => 'householdData', 'values' => $householdData, 'fields' => $householdFields, 'reviewing' => $reviewing || ($householdMode === 'existing' && ! $updateHousehold) || Gate::denies('queue-register')])
                 @endforeach
             </dl>
-        </details>
+        </x-disclosure>
     @endif
     @if (! $reviewing && $originalHouseholdId && ($householdMode !== 'existing' || $householdId !== $originalHouseholdId))
         <label for="transfer-reason" class="patient-label mt-4">Reason for household transfer / removal *</label><textarea id="transfer-reason" wire:model.blur="transferReason" class="patient-input w-full" maxlength="1000"></textarea><x-input-error :messages="$errors->get('transferReason')" />
@@ -54,7 +54,7 @@
             default => 3,
         };
     @endphp
-    <details @if (isset($registrationStep)) x-cloak x-show="$wire.registrationStep === {{ $sectionStep }} || $wire.showReview" @endif class="patient-card relative" wire:key="profile-section-{{ md5($section) }}" @if ($reviewing || isset($registrationStep)) open @endif>
+    <x-disclosure name="profile-section-{{ md5($section) }}" :open="$reviewing || isset($registrationStep)" :reveal="$reviewing || collect(array_keys($fields))->contains(fn ($field) => $errors->has('profile.'.$field))" x-cloak x-show="{{ isset($registrationStep) ? '$wire.registrationStep === '.$sectionStep.' || $wire.showReview' : 'true' }}" class="patient-card relative">
         <summary class="cursor-pointer text-sm font-semibold">{{ $section }} @if ($schema::sensitive($section))<span class="ml-2 text-xs text-muted">Restricted clinical assessment</span>@endif</summary>
         <dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @foreach ($fields as $key => $field)
@@ -63,23 +63,23 @@
         </dl>
         @if ($section === 'Form Completion' && ($editing ?? true))<p class="mt-4 text-xs text-muted">Prepared by: {{ auth()->user()->name }}. Staff identity and completion time are recorded automatically when saved.</p>@endif
         @if ($section === 'Immunization Child Information')<p class="mt-4 text-xs text-muted">Baby name, birthdate, and age use the individual patient's Personal Information.</p>@endif
-    </details>
+    </x-disclosure>
 @endforeach
-<details @if (isset($registrationStep)) x-cloak x-show="$wire.registrationStep === 4 || $wire.showReview" @endif class="patient-card relative" @if ($reviewing || isset($registrationStep)) open @endif>
+<x-disclosure name="registration-conditions" :open="$reviewing || isset($registrationStep)" :reveal="$reviewing || $errors->has('selectedConditions*') || $errors->has('otherCondition')" x-cloak x-show="{{ isset($registrationStep) ? '$wire.registrationStep === 4 || $wire.showReview' : 'true' }}" class="patient-card relative">
     <summary class="cursor-pointer text-sm font-semibold">Non-Communicable Diseases (NCD)</summary>
     <p class="mt-3 text-xs text-muted">Selections record reported history. A checkbox does not confirm a diagnosis.</p>
     @if ($reviewing)
         <p class="mt-3 text-sm">{{ implode(', ', $selectedConditions) ?: 'No conditions selected.' }}</p><p class="mt-2 text-sm">Other: {{ $otherCondition ?: 'Not provided.' }}</p>
     @else
-        <div class="mt-4 flex flex-wrap gap-4">@foreach ($schema::CONDITIONS as $condition)<label class="text-sm"><input type="checkbox" wire:model.live="selectedConditions" value="{{ $condition }}" class="mr-2 rounded">{{ $condition }}</label>@endforeach</div>
+        <div class="mt-4 flex flex-wrap gap-4">@foreach ($schema::CONDITIONS as $condition)<label wire:key="condition-{{ $condition }}" class="text-sm"><input type="checkbox" wire:model.live="selectedConditions" value="{{ $condition }}" class="mr-2 rounded">{{ $condition }}</label>@endforeach</div>
         <label for="other-condition" class="patient-label mt-4">Other condition (specify)</label><input id="other-condition" wire:model.blur="otherCondition" maxlength="255" class="patient-input w-full">
     @endif
-</details>
-<details @if (isset($registrationStep)) x-cloak x-show="$wire.registrationStep === 4 || $wire.showReview" @endif class="patient-card relative" @if ($reviewing || count($newDoses) || isset($registrationStep)) open @endif>
+</x-disclosure>
+<x-disclosure name="registration-doses" :open="$reviewing || count($newDoses) > 0 || isset($registrationStep)" :reveal="$reviewing || count($newDoses) > 0 || $errors->has('newDoses*')" x-cloak x-show="{{ isset($registrationStep) ? '$wire.registrationStep === 4 || $wire.showReview' : 'true' }}" class="patient-card relative">
     <summary class="cursor-pointer text-sm font-semibold">Immunization Records — new doses</summary>
     <p class="mt-3 text-xs text-muted">Record documented doses. Paper-form age columns are labels for recording, and do not prescribe a schedule. Completed doses require an administration date.</p>
     @foreach ($newDoses as $index => $dose)
-        <fieldset wire:key="new-dose-{{ $index }}" class="mt-4 rounded border border-line p-4">
+        <fieldset wire:key="new-dose-{{ $newDoseKeys[$index] ?? $index }}" class="mt-4 rounded border border-line p-4">
             <legend class="px-1 text-sm font-semibold">Dose entry {{ $index + 1 }}</legend>
             @if ($reviewing)
                 <dl class="grid gap-3 sm:grid-cols-3">@foreach ($dose as $key => $value)@if ($key !== 'supersedes_id' && filled($value))<div><dt class="text-xs text-muted">{{ str_replace('_', ' ', $key) }}</dt><dd class="break-words text-sm">{{ $value }}</dd></div>@endif@endforeach</dl>
@@ -103,4 +103,4 @@
         </fieldset>
     @endforeach
     @if (! $reviewing)<button type="button" wire:click="addDose" class="patient-button mt-4 text-xs">Add vaccine / supplement dose</button>@elseif (! count($newDoses))<p class="mt-3 text-sm">No new doses entered.</p>@endif
-</details>
+</x-disclosure>

@@ -18,11 +18,13 @@ class Queue extends Model
 
     protected $primaryKey = 'queue_id';
 
+    protected $hidden = ['consultation_draft'];
+
     protected $fillable = ['patient_id', 'queue_number', 'queue_date', 'status', 'called_at', 'completed_at', 'assigned_by', 'consulting_doctor_id'];
 
     protected function casts(): array
     {
-        return ['queue_date' => 'date', 'called_at' => 'datetime', 'completed_at' => 'datetime'];
+        return ['consultation_draft' => 'array', 'draft_saved_at' => 'datetime', 'consultation_version' => 'integer', 'queue_date' => 'date', 'called_at' => 'datetime', 'completed_at' => 'datetime'];
     }
 
     public function setQueueDateAttribute(mixed $value): void

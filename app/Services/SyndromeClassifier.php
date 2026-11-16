@@ -62,6 +62,11 @@ class SyndromeClassifier
                 'matches' => count($intersection) >= $rule->minimum_matches,
                 'evidence' => [
                     'syndrome_name' => $category->name, 'rule_version' => $rule->version,
+                    'chief_complaint' => $record->chief_complaint,
+                    'assessment_notes' => $record->assessment_notes,
+                    'diagnosis' => $record->diagnosis,
+                    'diagnosis_id' => $record->diagnosis_id,
+                    'classification_basis' => 'Approved structured-symptom mapping; clinical text retained for review only',
                     'minimum_matches' => $rule->minimum_matches, 'mapped_symptom_ids' => $required,
                     'matched_symptom_ids' => $intersection,
                     'structured_symptoms' => $record->symptoms->mapWithKeys(fn ($symptom): array => [$symptom->id => $symptom->pivot->symptom_name])->all(),

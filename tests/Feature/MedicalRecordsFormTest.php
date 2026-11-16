@@ -46,7 +46,7 @@ it('starts a queue consultation, shows visit vitals, saves, and views a medical 
         ->set('diagnosis', 'Seasonal allergies')
         ->set('treatment', 'Rest and hydration')
         ->set('consultation_notes', 'Follow up as needed.')
-        ->set('consultation_date', '2026-09-26')
+        ->assertSet('consultation_date', $queue->queue_date->toDateString())
         ->call('saveMedicalRecord')
         ->assertHasNoErrors();
 

@@ -7,6 +7,7 @@ use App\Models\MedicalRecord;
 use App\Models\PatientInformation;
 use App\Models\Queue;
 use App\Models\Symptom;
+use App\Services\IndividualTreatmentRecord;
 use App\Services\QueueWorkflow;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -52,6 +53,15 @@ class MedicalRecordsForm extends Component
     public string $symptomSearch = '';
 
     public string $chief_complaint = '';
+
+    #[Locked]
+    public int $consultationVersion = 0;
+
+    /** @var array<string, string> */
+    public array $clinicalNotes = [];
+
+    /** @var array<string, array{findings?: array<int, string>, other?: string}> */
+    public array $physical_examination = [];
 
     public string $laboratory_requests = '';
 
@@ -117,7 +127,6 @@ class MedicalRecordsForm extends Component
             $this->selectedSymptomIds[] = $symptomId;
         }
         $this->customSymptoms = array_values(array_filter($this->customSymptoms, fn (mixed $name): bool => ! is_string($name) || Diagnosis::normalizeName($name) !== Diagnosis::normalizeName($symptom->name)));
-        $this->symptomSearch = '';
         unset($this->selectedSymptoms, $this->availableSymptoms);
     }
 
@@ -167,6 +176,7 @@ class MedicalRecordsForm extends Component
     public function mount(?int $patient_id = null, ?int $queue_id = null): void
     {
         Gate::authorize('queue-consult');
+        $this->physical_examination = IndividualTreatmentRecord::emptyExamination();
         $this->consultation_date = now('Asia/Manila')->toDateString();
         $this->patient_id = null;
 
@@ -265,6 +275,12 @@ class MedicalRecordsForm extends Component
         $this->patient_id = $queue->patient_id;
         $this->queueId = $queue->queue_id;
         $this->vital_signs_id = $queue->vitalSign()->value('vital_id') ?? '';
+        $this->consultation_date = $queue->queue_date->toDateString();
+        $this->consultationVersion = $queue->consultation_version;
+        if ($queue->consultation_draft !== null) {
+            $this->fill($queue->consultation_draft);
+        }
+        $this->physical_examination = array_replace_recursive(IndividualTreatmentRecord::emptyExamination(), $this->physical_examination);
         unset($this->vitalSigns, $this->medicalRecords, $this->consultationQueue, $this->activeConsultations);
         $this->dispatch('queue-updated');
     }
@@ -272,7 +288,22 @@ class MedicalRecordsForm extends Component
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
+        $clinicalRules = [
+            'clinicalNotes' => ['array:'.implode(',', array_keys(IndividualTreatmentRecord::NOTES))],
+            'physical_examination' => ['array:'.implode(',', array_keys(IndividualTreatmentRecord::EXAMINATIONS))],
+        ];
+        foreach (IndividualTreatmentRecord::NOTES as $field => $label) {
+            $clinicalRules['clinicalNotes.'.$field] = ['nullable', 'string', 'max:10000'];
+        }
+        foreach (IndividualTreatmentRecord::EXAMINATIONS as $group => $findings) {
+            $clinicalRules['physical_examination.'.$group] = ['array:findings,other'];
+            $clinicalRules['physical_examination.'.$group.'.findings'] = ['array', 'max:'.count($findings)];
+            $clinicalRules['physical_examination.'.$group.'.findings.*'] = ['string', 'distinct', Rule::in($findings)];
+            $clinicalRules['physical_examination.'.$group.'.other'] = ['nullable', 'string', 'max:10000'];
+        }
+
         return [
+            ...$clinicalRules,
             'queueId' => ['required', 'integer', 'exists:queues,queue_id'],
             'patient_id' => ['required', 'integer', 'exists:patient_information,patient_id'],
             'vital_signs_id' => ['required', 'integer', 'exists:vital_signs,vital_id'],
@@ -289,10 +320,10 @@ class MedicalRecordsForm extends Component
             'customSymptoms' => ['array', 'max:50'],
             'customSymptoms.*' => ['bail', 'required', 'string', 'max:255', 'distinct:ignore_case', 'not_regex:/^\s*$/u'],
             'customSymptom' => ['nullable', 'string', 'max:255'],
-            'prescription' => ['nullable', 'string'],
-            'treatment' => [$this->queueId !== null ? 'required' : 'nullable', 'string'],
-            'consultation_notes' => [$this->queueId !== null ? 'required' : 'nullable', 'string'],
-            'consultation_date' => ['required', 'date'],
+            'prescription' => ['nullable', 'string', 'max:10000'],
+            'treatment' => [$this->queueId !== null ? 'required' : 'nullable', 'string', 'max:10000'],
+            'consultation_notes' => ['nullable', 'string', 'max:10000'],
+            'consultation_date' => ['required', 'date', Rule::in([$this->currentQueue?->queue_date->toDateString() ?? $this->consultation_date])],
             'follow_up_date' => ['nullable', 'date', 'after_or_equal:consultation_date'],
         ];
     }
@@ -346,7 +377,7 @@ class MedicalRecordsForm extends Component
         Gate::authorize('queue-consult');
 
         return $this->patient
-            ? $this->patient->medicalRecords()->with('handledBy', 'vitalSign', 'symptoms')->latest('consultation_date')->latest('medical_record_id')->get()
+            ? $this->patient->medicalRecords()->with('handledBy', 'vitalSign', 'symptoms')->latest('consultation_date')->orderByRaw('COALESCE(encounter_at, created_at) DESC')->latest('medical_record_id')->get()
             : collect();
     }
 
@@ -401,6 +432,7 @@ class MedicalRecordsForm extends Component
                 throw ValidationException::withMessages(['selectedSymptomIds' => 'A selected symptom is no longer available. Review the selection.']);
             }
             $record = MedicalRecord::create([
+                ...$this->clinicalValues(),
                 'queue_id' => $queue->queue_id,
                 'patient_id' => $this->patient_id,
                 'vital_signs_id' => $this->vital_signs_id,
@@ -423,7 +455,11 @@ class MedicalRecordsForm extends Component
         };
 
         try {
-            app(QueueWorkflow::class)->saveMedicalRecord($this->queueId, (int) $this->patient_id, (int) $this->vital_signs_id, $save);
+            app(QueueWorkflow::class)->saveMedicalRecord($this->queueId, (int) $this->patient_id, (int) $this->vital_signs_id, $save, $this->consultationVersion);
+        } catch (ValidationException $exception) {
+            $this->setErrorBag($exception->validator->errors());
+
+            return;
         } catch (QueryException $exception) {
             report($exception);
             $this->addError('queue', 'Unable to save this visit. Check the current queue status and try again.');
@@ -436,16 +472,52 @@ class MedicalRecordsForm extends Component
         $this->dispatch('queue-updated');
     }
 
+    /** @return array<string, mixed> */
+    private function clinicalValues(): array
+    {
+        $values = [];
+        foreach (IndividualTreatmentRecord::NOTES as $field => $label) {
+            $values[$field] = ($this->clinicalNotes[$field] ?? '') !== '' ? $this->clinicalNotes[$field] : null;
+        }
+
+        $examination = array_filter($this->physical_examination, fn (array $group): bool => filled($group['findings'] ?? []) || filled($group['other'] ?? ''));
+
+        return [...$values, 'physical_examination' => $examination ?: null];
+    }
+
+    public function saveDraft(): void
+    {
+        Gate::authorize('queue-consult');
+        $rules = $this->rules();
+        foreach (['diagnosis', 'treatment'] as $field) {
+            $rules[$field] = array_map(fn (mixed $rule): mixed => $rule === 'required' ? 'nullable' : $rule, $rules[$field]);
+        }
+        $this->validate($rules);
+        $fields = ['chief_complaint', 'laboratory_requests', 'diagnosisSelection', 'catalogDiagnosisId', 'catalogDiagnosisWording', 'diagnosis', 'selectedSymptomIds', 'customSymptoms', 'customSymptom', 'prescription', 'treatment', 'consultation_notes', 'follow_up_date', 'clinicalNotes', 'physical_examination'];
+        try {
+            $queue = app(QueueWorkflow::class)->saveConsultationDraft($this->queueId, (int) $this->patient_id, (int) $this->vital_signs_id, $this->consultationVersion, $this->only($fields));
+            $this->consultationVersion = $queue->consultation_version;
+            unset($this->currentQueue);
+            session()->flash('success', 'Draft saved. The visit remains in consultation.');
+        } catch (ValidationException $exception) {
+            $this->setErrorBag($exception->validator->errors());
+        } catch (QueryException $exception) {
+            report($exception);
+            $this->addError('queue', 'Unable to save the draft. Your entries have been retained.');
+        }
+    }
+
     public function resetForm(): void
     {
         $this->reset([
             'queueId', 'patient', 'patient_id', 'vital_signs_id',
             'diagnosis', 'prescription', 'treatment', 'consultation_notes', 'follow_up_date',
             'chief_complaint', 'laboratory_requests', 'diagnosisSelection', 'diagnosisSearch', 'symptomSearch', 'selectedSymptomIds', 'customSymptoms', 'customSymptom',
-            'catalogDiagnosisId', 'catalogDiagnosisWording',
+            'catalogDiagnosisId', 'catalogDiagnosisWording', 'clinicalNotes', 'physical_examination', 'consultationVersion',
         ]);
         $this->consultation_date = now('Asia/Manila')->toDateString();
         $this->patient_id = null;
+        $this->physical_examination = IndividualTreatmentRecord::emptyExamination();
         $this->closeMedicalRecordModal();
         $this->resetValidation();
         unset($this->medicalRecords, $this->vitalSigns, $this->consultationQueue, $this->activeConsultations);

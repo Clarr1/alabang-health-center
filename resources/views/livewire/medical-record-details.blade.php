@@ -71,7 +71,7 @@
                     <div><dt class="text-[11px] text-muted">Registered</dt><dd class="mt-1"><time datetime="{{ $patient->registration_date }}">{{ $patient->registration_date ? \Illuminate\Support\Carbon::parse($patient->registration_date)->format('d M Y') : 'Not provided.' }}</time></dd></div>
                     <div><dt class="sr-only">Status</dt><dd><span class="rounded bg-[#e9ebf0] px-2 py-1 text-[11px]">{{ filled($patient->status) ? $patient->status : 'Not provided.' }}</span></dd></div>
                 </dl>
-                <details class="mt-5 border-t border-line pt-4">
+                <details wire:ignore.self class="mt-5 border-t border-line pt-4">
                     <summary class="cursor-pointer text-xs font-semibold focus-visible:outline-pink-400">Patient Information</summary>
                     <dl class="mt-4 space-y-3 text-xs">
                         @foreach ($patientFields as $label => $value)
@@ -153,10 +153,10 @@
                 @if ($patient->vitalSigns->isNotEmpty())
                     <div class="mt-4 overflow-x-auto rounded-t-md" tabindex="0" role="region" aria-label="Vital signs history table, scroll horizontally for all columns">
                         <table class="w-full min-w-[850px] text-left text-xs">
-                            <thead class="bg-blush text-[11px]"><tr><th scope="col" class="px-3 py-3">Recorded</th><th scope="col" class="px-3 py-3">BP (mmHg)</th><th scope="col" class="px-3 py-3">Temperature (&deg;C)</th><th scope="col" class="px-3 py-3">Pulse (bpm)</th><th scope="col" class="px-3 py-3">RR (/min)</th><th scope="col" class="px-3 py-3">Height (cm)</th><th scope="col" class="px-3 py-3">Weight (kg)</th><th scope="col" class="px-3 py-3">BMI</th></tr></thead>
+                            <thead class="bg-blush text-[11px]"><tr><th scope="col" class="px-3 py-3">Recorded</th><th scope="col" class="px-3 py-3">BP (mmHg)</th><th scope="col" class="px-3 py-3">Temperature (&deg;C)</th><th scope="col" class="px-3 py-3">Pulse (bpm)</th><th scope="col" class="px-3 py-3">RR (/min)</th><th scope="col" class="px-3 py-3">Height (cm)</th><th scope="col" class="px-3 py-3">Weight (kg)</th><th scope="col" class="px-3 py-3">BMI</th><th scope="col" class="px-3 py-3">O2 Sat (%)</th><th scope="col" class="px-3 py-3">Waistline (cm)</th><th scope="col" class="px-3 py-3">Nutritional Status</th></tr></thead>
                             <tbody class="divide-y divide-line">
                                 @foreach ($patient->vitalSigns as $measurement)
-                                    <tr wire:key="patient-vital-{{ $measurement->vital_id }}"><td class="whitespace-nowrap px-3 py-4">{{ $measurement->recorded_at?->timezone('Asia/Manila')->format('M j, Y g:i A') ?: 'Not provided.' }}<span class="mt-1 block text-[11px] text-muted">{{ $measurement->recordedBy?->name ?: 'Not provided.' }}</span></td><td class="px-3 py-4">{{ filled($measurement->blood_pressure) ? $measurement->blood_pressure : 'Not provided.' }}</td><td class="px-3 py-4">{{ $measurement->temperature ?? 'Not provided.' }}</td><td class="px-3 py-4">{{ $measurement->pulse_rate ?? 'Not provided.' }}</td><td class="px-3 py-4">{{ $measurement->respiratory_rate ?? 'Not provided.' }}</td><td class="px-3 py-4">{{ $measurement->height ?? 'Not provided.' }}</td><td class="px-3 py-4">{{ $measurement->weight ?? 'Not provided.' }}</td><td class="px-3 py-4">{{ $measurement->bmi ?? 'Not provided.' }}</td></tr>
+                                    <tr wire:key="patient-vital-{{ $measurement->vital_id }}"><td class="whitespace-nowrap px-3 py-4">{{ $measurement->recorded_at?->timezone('Asia/Manila')->format('M j, Y g:i A') ?: 'Not provided.' }}<span class="mt-1 block text-[11px] text-muted">{{ $measurement->recordedBy?->name ?: 'Not provided.' }}</span></td><td class="px-3 py-4">{{ filled($measurement->blood_pressure) ? $measurement->blood_pressure : 'Not provided.' }}</td><td class="px-3 py-4">{{ $measurement->temperature ?? 'Not provided.' }}</td><td class="px-3 py-4">{{ $measurement->pulse_rate ?? 'Not provided.' }}</td><td class="px-3 py-4">{{ $measurement->respiratory_rate ?? 'Not provided.' }}</td><td class="px-3 py-4">{{ $measurement->height ?? 'Not provided.' }}</td><td class="px-3 py-4">{{ $measurement->weight ?? 'Not provided.' }}</td><td class="px-3 py-4">{{ $measurement->bmi ?? 'Not provided.' }}</td><td class="px-3 py-4">{{ $measurement->oxygen_saturation ?? 'Not recorded' }}</td><td class="px-3 py-4">{{ $measurement->waistline ?? 'Not recorded' }}</td><td class="px-3 py-4">{{ $measurement->nutritional_status ?: 'Not recorded' }}<span class="block text-muted">{{ $measurement->nutrition_assessment_method }}</span></td></tr>
                                 @endforeach
                             </tbody>
                         </table>
@@ -237,6 +237,8 @@
                                     </dl>
                                 </section>
 
+                                <x-itr-record-sections :record="$record" />
+
                                 <section class="mt-8 border-t border-line pt-5">
                                     <h4 class="text-base font-semibold text-ink">Vital Signs</h4>
                                     <dl class="mt-4 grid gap-x-8 gap-y-5 text-sm sm:grid-cols-2 lg:grid-cols-3">
@@ -251,6 +253,10 @@
                                             'Height' => $vitalSign?->height !== null ? $vitalSign->height.' cm' : null,
                                             'Weight' => $vitalSign?->weight !== null ? $vitalSign->weight.' kg' : null,
                                             'BMI' => $vitalSign?->bmi,
+                                            'Oxygen saturation (%)' => $vitalSign?->oxygen_saturation,
+                                            'Waistline (cm)' => $vitalSign?->waistline,
+                                            'Nutritional Status' => $vitalSign?->nutritional_status,
+                                            'Nutrition assessment method' => $vitalSign?->nutrition_assessment_method,
                                         ] as $label => $value)
                                             <div>
                                                 <dt class="font-medium text-muted">{{ $label }}</dt>

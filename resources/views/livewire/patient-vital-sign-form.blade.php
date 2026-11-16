@@ -128,7 +128,7 @@
 
                 <div>
                     <label for="weight" class="mb-1 block text-sm font-medium text-gray-700">Weight (kg)</label>
-                    <input id="weight" type="number" step="0.01" min="1" max="500" wire:model.live="weight" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    <input id="weight" type="number" step="0.01" min="0.1" max="500" wire:model.live="weight" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
                 </div>
 
                 <div>
@@ -138,10 +138,12 @@
 
                 <div>
                     <label for="recorded_at" class="mb-1 block text-sm font-medium text-gray-700">Recorded At</label>
-                    <input id="recorded_at" type="datetime-local" wire:model.defer="recorded_at" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    <input id="recorded_at" type="datetime-local" value="{{ $recorded_at }}" readonly class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
                 </div>
             </div>
         </div>
+
+        <x-additional-vital-fields />
 
         <div class="flex justify-end">
             <button type="submit" class="rounded-md bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">

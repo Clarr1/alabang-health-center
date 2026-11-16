@@ -143,7 +143,7 @@ class PatientProfileForm extends Component
         if ($this->showHistory) {
             $allowed = array_keys(array_merge(...array_values(app(PatientRegistration::class)->sections($this->birthdate, true))));
             $history = $patient->profileAudits()->where('action', 'profile-updated')->latest('id')->get()->map(function (PatientProfileAudit $audit) use ($allowed): array {
-                return ['date' => $audit->created_at, 'user_id' => $audit->user_id, 'values' => array_intersect_key($audit->details['before'] ?? [], array_flip($allowed))];
+                return ['id' => $audit->id, 'date' => $audit->created_at, 'user_id' => $audit->user_id, 'values' => array_intersect_key($audit->details['before'] ?? [], array_flip($allowed))];
             });
         }
 

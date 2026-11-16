@@ -32,7 +32,7 @@
             <form wire:submit="prepareAssignment" class="space-y-4">
                 <div>
                     <label for="queue-patient-search" class="patient-label">Add an existing patient</label>
-                    <input id="queue-patient-search" type="search" wire:model.live.debounce.300ms="patientSearch" placeholder="Patient name or ID" class="patient-input w-full">
+                    <input id="queue-patient-search" x-on:keydown.enter.prevent type="search" wire:model.live.debounce.300ms="patientSearch" placeholder="Patient name or ID" class="patient-input w-full">
                     <a href="{{ route('patient.information-form') }}" wire:navigate class="mt-3 inline-block text-sm font-semibold text-ink underline decoration-brand-pink underline-offset-4">Register a new patient</a>
                     @if (trim($patientSearch) !== '')
                         @forelse ($this->patientResults as $patient)

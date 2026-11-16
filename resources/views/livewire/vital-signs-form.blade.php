@@ -69,7 +69,7 @@
                 <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-blue text-sm font-semibold" aria-hidden="true">{{ mb_strtoupper(mb_substr($patient->first_name, 0, 1).mb_substr($patient->last_name, 0, 1)) }}</span>
                 <div class="min-w-0">
                     <h2 class="text-sm font-semibold">{{ trim(implode(' ', array_filter([$patient->first_name, $patient->middle_name, $patient->last_name]))) }}</h2>
-                    <p class="mt-1 text-xs leading-relaxed text-muted">Patient #{{ $patient->patient_id }} &middot; {{ $patient->sex }} &middot; {{ $patient->age }} years &middot; {{ \Illuminate\Support\Carbon::parse($patient->birthdate)->format('d M Y') }}</p>
+                    <p class="mt-1 text-xs leading-relaxed text-muted">Patient #{{ $patient->patient_id }} &middot; Family Number {{ $patient->household?->family_number ?: 'Not recorded' }} &middot; {{ $patient->sex }} &middot; {{ $patient->age }} years &middot; {{ \Illuminate\Support\Carbon::parse($patient->birthdate)->format('d M Y') }}</p>
                 </div>
             </div>
             @if ($currentQueue)
@@ -132,7 +132,7 @@
                         </div>
                         <div>
                             <label for="vital-weight" class="patient-label">Weight (kg)</label>
-                            <input id="vital-weight" type="number" step="0.01" min="1" max="500" wire:model.live.debounce.300ms="weight" class="patient-input w-full">
+                            <input id="vital-weight" type="number" step="0.01" min="0.1" max="500" wire:model.live.debounce.300ms="weight" class="patient-input w-full">
                             <x-input-error :messages="$errors->get('weight')" class="mt-2" />
                         </div>
                         <div>
@@ -141,6 +141,8 @@
                             <x-input-error :messages="$errors->get('bmi')" class="mt-2" />
                         </div>
                     </div>
+                    <x-additional-vital-fields />
+                    <p class="mt-3 text-xs text-muted">BMI interpretation: {{ $this->bmiCategory }}</p>
                     <p id="bmi-help" class="mt-4 text-[11px] leading-relaxed text-muted">BMI = weight (kg) &divide; height (m)&sup2;. Clinical interpretation remains with the care team.</p>
                 </section>
 
