@@ -11,7 +11,7 @@
         </details>
     @endif
     @if ($editing)<form wire:submit="saveProfile" class="space-y-4">@else<div class="space-y-4">@endif
-        @include('livewire.partials.patient-category', ['reviewing' => $showReview, 'allowCategorySelection' => $editing])
+        @include('livewire.partials.patient-category', ['reviewing' => $showReview])
         @include('livewire.partials.registration-profile-fields', ['reviewing' => $showReview])
         @if ($editing)<div class="flex flex-wrap gap-2"><button type="button" wire:click="cancelEdit" class="patient-button text-xs">Cancel changes</button><button type="button" wire:click="reviewProfile" class="patient-button text-xs">Review information</button>@if ($showReview)<button type="submit" wire:loading.attr="disabled" class="patient-button bg-brand-pink text-xs">Save profile</button><button type="button" wire:click="$set('showReview', false)" class="patient-button text-xs">Back to details</button>@endif</div>@endif
     @if ($editing)</form>@else</div>@endif

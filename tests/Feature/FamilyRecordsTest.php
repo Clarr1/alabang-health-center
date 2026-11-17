@@ -196,8 +196,9 @@ it('preselects and retains the existing household when registering additional fa
     $record = familyConsultation($existing);
     $this->actingAs(User::factory()->create())->get(route('patient.information-form', ['household' => $household->id]))->assertOk()->assertSee('Adding a family member to')->assertSee($household->family_number);
     $form = Livewire::withQueryParams(['household' => $household->id])->test(PatientInformationForm::class)
-        ->assertSet('showCategorySelection', true)->assertSet('householdMode', 'existing')->assertSet('householdId', $household->id)
-        ->call('selectCategory', 'Adult')->set('first_name', 'New family member')->set('last_name', 'Lopez')
+        ->assertSet('registrationStep', 1)->assertSet('householdMode', 'existing')->assertSet('householdId', $household->id)
+        ->set('first_name', 'New family member')->set('last_name', 'Lopez')
+        ->set('contact_number', '09171234567')->set('emergency_contact', 'Jose Santos, relative, 09171234568')
         ->set('birthdate', '1995-01-01')->set('address', 'Member address')->set('householdRelationship', 'Son')
         ->call('reviewDetails')->assertHasNoErrors()->call('savePatient')->assertHasNoErrors()->assertSee('Patient registered successfully.');
     $new = PatientInformation::whereKeyNot($existing->patient_id)->sole();
@@ -205,7 +206,7 @@ it('preselects and retains the existing household when registering additional fa
         ->and($new->patient_id)->not->toBe($existing->patient_id)->and(Household::count())->toBe(1)
         ->and($household->members()->count())->toBe(2)->and($new->medicalRecords()->count())->toBe(0)
         ->and($record->fresh()->patient_id)->toBe($existing->patient_id);
-    $form->call('resetForm')->assertSet('householdMode', 'existing')->assertSet('householdId', $household->id)->assertSet('showCategorySelection', true);
+    $form->call('resetForm')->assertSet('householdMode', 'existing')->assertSet('householdId', $household->id)->assertSet('registrationStep', 1);
 });
 
 it('keeps sensitive assessments out of staff responses and state but permits clinicians', function () {
@@ -225,7 +226,8 @@ it('rejects attempts to create or select a different household in add member reg
     $other = Household::factory()->create();
     Livewire::actingAs(User::factory()->create());
     $form = Livewire::withQueryParams(['household' => $household->id])->test(PatientInformationForm::class)
-        ->call('selectCategory', 'Adult')->assertDontSee('Create a household')
+        ->assertDontSee('Create a household')
+        ->set('contact_number', '09171234567')->set('emergency_contact', 'Jose Santos, relative, 09171234568')
         ->set('first_name', 'Additional')->set('last_name', 'Member')->set('birthdate', '1995-01-01')->set('address', 'Shared address')
         ->set('householdMode', $mode)->set('householdId', $other->id)->call('savePatient')->assertHasErrors('householdId');
     expect(PatientInformation::count())->toBe(0)->and(Household::count())->toBe(2);

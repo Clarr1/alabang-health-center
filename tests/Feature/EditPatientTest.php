@@ -96,8 +96,8 @@ it('shows field errors without updating or navigating when patient details are i
     'missing first name' => ['first_name', ''],
     'missing last name' => ['last_name', ''],
     'invalid birthdate' => ['birthdate', 'not-a-date'],
-    'negative age' => ['age', -1],
-    'age too large' => ['age', 151],
+    'future birthdate' => ['birthdate', now('Asia/Manila')->addDay()->toDateString()],
+    'impossible birthdate' => ['birthdate', '2026-02-30'],
     'invalid sex' => ['sex', 'Other'],
     'missing address' => ['address', ''],
     'contact number too long' => ['contact_number', str_repeat('1', 21)],
@@ -106,7 +106,7 @@ it('shows field errors without updating or navigating when patient details are i
     'queue status used as patient status' => ['status', 'Waiting'],
 ]);
 
-it('allows nullable patient details to stay empty', function () {
+it('requires contact details on legacy records while allowing the middle name to stay empty', function () {
     $patient = PatientInformation::factory()->create([
         'middle_name' => null, 'contact_number' => null, 'emergency_contact' => null,
     ]);
@@ -116,7 +116,11 @@ it('allows nullable patient details to stay empty', function () {
         ->assertSet('middle_name', null)
         ->assertSet('contact_number', null)
         ->assertSet('emergency_contact', null)
+        ->call('saveChanges')->assertHasErrors(['contact_number' => 'required', 'emergency_contact' => 'required'])
+        ->assertNotDispatched('patient-updated')
+        ->set('contact_number', '09171234567')->set('emergency_contact', 'Jose Santos, relative, 09171234568')
         ->call('saveChanges')->assertHasNoErrors()->assertDispatched('patient-updated');
+    expect($patient->fresh()->middle_name)->toBeNull();
 });
 
 it('cancels through a link to the patient page without saving pending changes', function () {

@@ -30,7 +30,7 @@ class PatientRegistrationSchema
                 'pwd' => self::field('PWD', 'select', self::YES_NO),
                 'pwd_number' => self::field('PWD ID number', when: ['pwd', 'Yes']), 'senior_number' => self::field('Senior citizen ID'),
             ],
-            'Child Health Profile (0–5 years)' => [
+            'Child Health Profile (0–9 years)' => [
                 'vaccination_status' => self::field('Vaccination status'), 'nutrition_status' => self::field('Nutritional status'),
                 'development_assessment' => self::field('Developmental assessment', 'textarea'),
             ],
@@ -103,7 +103,7 @@ class PatientRegistrationSchema
 
     public static function sensitive(string $section): bool
     {
-        return in_array($section, ['Women of Reproductive Age', 'Reproductive Health Applicability', 'Adolescent HEADSS Assessment'], true);
+        return in_array($section, ['Women of Reproductive Age', 'Adolescent HEADSS Assessment'], true);
     }
 
     /** @param array<string, mixed> $values */

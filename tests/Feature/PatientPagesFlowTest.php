@@ -14,7 +14,6 @@ it('saves patient information on one page and vital signs on the next page', fun
 
     $form = Livewire::actingAs($user)
         ->test(PatientInformationForm::class)
-        ->call('selectCategory', 'Adult')
         ->set('first_name', 'Anna')
         ->set('middle_name', 'Marie')
         ->set('last_name', 'Dela Cruz')
@@ -146,11 +145,11 @@ it('calculates patient age from birthdate using the Manila day', function (strin
 
 it('validates and reviews registration details without creating a patient until submitted', function () {
     $form = Livewire::actingAs(User::factory()->create())->test(PatientInformationForm::class)
-        ->call('selectCategory', 'Adult')
         ->call('reviewDetails')->assertHasErrors(['first_name', 'last_name', 'birthdate', 'age', 'address'])
         ->assertSet('showReview', false)
         ->set('first_name', 'ReviewAnna')->set('last_name', 'ReviewSantos')->set('birthdate', '1995-02-14')
         ->set('address', 'Alabang, Muntinlupa City')->set('emergency_contact', 'Jose, spouse, 09170001111')
+        ->set('contact_number', '09170001111')
         ->call('reviewDetails')->assertHasNoErrors()->assertSet('showReview', true)
         ->assertSee('Review patient details')->assertSee('ReviewAnna')->assertSee('Jose, spouse, 09170001111');
 
@@ -165,7 +164,7 @@ it('shows advisory existing-patient matches by first name last name and birthdat
     $existing = PatientInformation::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos', 'birthdate' => '1992-05-14']);
     PatientInformation::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos', 'birthdate' => '1993-05-14']);
     $form = Livewire::actingAs(User::factory()->create())->test(PatientInformationForm::class)
-        ->call('selectCategory', 'Adult')->set('first_name', ' maria ')->set('last_name', 'SANTOS')->set('birthdate', '1992-05-14')
+        ->set('first_name', ' maria ')->set('last_name', 'SANTOS')->set('birthdate', '1992-05-14')
         ->assertSee('Possible existing patient records');
 
     expect($form->get('duplicatePatients')->modelKeys())->toBe([$existing->patient_id]);
@@ -176,7 +175,8 @@ it('shows advisory existing-patient matches by first name last name and birthdat
 
 it('starts another registration only after explicitly leaving the generated ID screen', function () {
     $form = Livewire::actingAs(User::factory()->create())->test(PatientInformationForm::class)
-        ->call('selectCategory', 'Adult')->set('first_name', 'First')->set('last_name', 'Patient')->set('birthdate', '1995-02-14')
+        ->set('first_name', 'First')->set('last_name', 'Patient')->set('birthdate', '1995-02-14')
+        ->set('contact_number', '09171234567')->set('emergency_contact', 'Jose Santos, relative, 09171234568')
         ->set('address', 'Alabang')->call('savePatient')->assertHasNoErrors();
     $firstPatientId = PatientInformation::sole()->patient_id;
     $form->assertSet('registeredPatientId', $firstPatientId)
@@ -185,7 +185,8 @@ it('starts another registration only after explicitly leaving the generated ID s
         ->assertSee('Patient Registration')->assertDontSee('Printable healthcare ID')
         ->assertSet('first_name', '')->assertSet('showReview', false)
         ->call('savePatient')->assertHasErrors(['first_name', 'last_name', 'birthdate', 'age', 'address'])
-        ->call('selectCategory', 'Adult')->set('first_name', 'Second')->set('last_name', 'Patient')->set('birthdate', '2000-01-01')
+        ->set('first_name', 'Second')->set('last_name', 'Patient')->set('birthdate', '2000-01-01')
+        ->set('contact_number', '09171234567')->set('emergency_contact', 'Jose Santos, relative, 09171234568')
         ->set('address', 'Alabang')->call('savePatient')->assertHasNoErrors();
     expect(PatientInformation::count())->toBe(2)->and(Queue::count())->toBe(0);
     expect($form->get('registeredPatientId'))->not->toBe($firstPatientId);

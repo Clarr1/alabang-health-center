@@ -32,23 +32,9 @@
             </footer>
             <p class="mt-3 text-xs text-muted">No queue number has been assigned. Check the patient in through Queue Management when they need a visit.</p>
         </div>
-    @elseif ($showCategorySelection)
-        <header class="relative mb-6"><h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">Patient Registration</h1><p class="mt-2 text-sm text-muted">Choose a category to open its registration form. Each person keeps one patient record.</p></header>
-        @if ($errors->any())<div role="alert" class="relative mb-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm">@foreach ($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
-        <div class="relative grid gap-5 md:grid-cols-3" aria-label="Patient registration categories">
-            @foreach (app(\App\Services\PatientCategories::class)->choices() as $category => $range)
-                <article class="patient-card flex flex-col items-start" wire:key="registration-category-{{ $category }}">
-                    <span class="rounded-full bg-brand-blue/30 px-3 py-1 text-xs font-medium">{{ $range['min_age'] }}{{ $category === 'Adult' ? '+' : '–'.$range['max_age'] }} years</span>
-                    <h2 class="mt-5 text-xl font-semibold">{{ $category }}</h2>
-                    <p class="mb-6 mt-3 flex-1 text-sm leading-relaxed text-muted">{{ $range['description'] }}</p>
-                    <button type="button" wire:click="selectCategory('{{ $category }}')" wire:loading.attr="disabled" class="patient-button bg-brand-pink text-xs">Continue to {{ strtolower($category) }} registration</button>
-                </article>
-            @endforeach
-        </div>
-        <p class="relative mt-5 text-xs leading-relaxed text-muted">The birthday suggests a category after selection. Ages outside the configured ranges, including 6–9 with the default ranges, require an authorized staff member to document an exception. Shared unsaved details are retained when switching forms; saved assessments remain in the patient's history.</p>
     @else
         <div class="relative mb-6 flex flex-wrap items-start justify-between gap-4">
-            <div><h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">{{ $patientCategory }} Registration</h1><p class="mt-2 text-sm text-muted">Patient Registration · Fields marked * are required. Optional assessments can be skipped.</p></div>
+            <div><h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">Patient Registration</h1><p class="mt-2 text-sm text-muted">Patient Registration · Fields marked * are required. Optional assessments can be skipped.</p></div>
             <a href="{{ route('patients.index') }}" wire:navigate class="patient-button bg-white text-xs"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m12 5-7 7 7 7M5 12h14"/></svg>Back to Patient Record</a>
         </div>
         <ol class="relative mb-6 grid gap-3 text-xs text-muted sm:grid-cols-5" aria-label="Registration progress">
@@ -62,9 +48,11 @@
         @endif
 
         <form wire:submit.prevent="submitRegistration" novalidate class="space-y-5">
-            @include('livewire.partials.patient-category', ['reviewing' => $showReview, 'allowCategorySelection' => false])
             <div x-show="$wire.registrationStep === 1 || $wire.showReview" class="space-y-5"><x-patient-information-fields :reviewing="$showReview" :details="$this->patientSummary" /></div>
-            @include('livewire.partials.registration-profile-fields', ['reviewing' => $showReview])
+            @include('livewire.partials.patient-category', ['reviewing' => $showReview, 'automaticCategory' => true])
+            @if ($patientCategory !== null)
+                @include('livewire.partials.registration-profile-fields', ['reviewing' => $showReview])
+            @endif
 
             @can('queue-register')
                 @php($duplicates = $this->duplicatePatients)
@@ -86,7 +74,6 @@
             <footer class="relative flex flex-wrap items-center justify-between gap-4">
                 <p class="text-[11px] text-muted">Review the entered details with the patient before confirming.</p>
                 <div class="flex flex-wrap gap-2">
-                    <button type="button" wire:click="backToCategories" class="patient-button bg-white text-xs">Back to categories</button>
                     @if ($showReview)
                         <button type="button" wire:click="returnToDetails" wire:loading.attr="disabled" class="patient-button bg-brand-blue text-xs hover:bg-[#90cfe9]">Back to details</button>
                     @else

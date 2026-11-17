@@ -15,7 +15,7 @@ use Illuminate\Validation\ValidationException;
 class PatientRegistration
 {
     /** @return array<string, array<string, array<string, mixed>>> */
-    public function sections(string $birthdate, bool $includeHistorical = false, ?string $category = null, mixed $reproductiveApplicable = null): array
+    public function sections(string $birthdate, bool $includeHistorical = false, ?string $category = null): array
     {
         $category ??= app(PatientCategories::class)->suggest($birthdate);
         $sections = [];
@@ -28,7 +28,7 @@ class PatientRegistration
 
                 continue;
             }
-            if (in_array($section, ['Child Health Profile (0–5 years)', 'Immunization Child Information'], true) && $category !== 'Child') {
+            if (in_array($section, ['Child Health Profile (0–9 years)', 'Immunization Child Information'], true) && $category !== 'Child') {
                 continue;
             }
             if ($section === 'Adolescent HEADSS Assessment' && $category !== 'Adolescent') {
@@ -40,12 +40,8 @@ class PatientRegistration
                 }
                 $section = $category.' Health Profile';
             }
-            if ($section === 'Women of Reproductive Age' && $category !== 'Adult') {
-                $sections['Reproductive Health Applicability'] = ['reproductive_applicable' => $fields['reproductive_applicable']];
-                if ($reproductiveApplicable !== 'Yes') {
-                    continue;
-                }
-                unset($fields['reproductive_applicable']);
+            if ($section === 'Women of Reproductive Age' && ! in_array($category, ['Adolescent', 'Adult'], true)) {
+                continue;
             }
             $sections[$section] = $fields;
         }
@@ -96,7 +92,7 @@ class PatientRegistration
         Gate::authorize('patient-profile-manage');
         $category = $input['patientCategory'] ?? null;
         app(PatientCategories::class)->validate($category, $input['categoryOverrideReason'] ?? '', $birthdate);
-        $sections = $this->sections($birthdate, false, $category, $input['profile']['reproductive_applicable'] ?? null);
+        $sections = $this->sections($birthdate, false, $category);
         $fields = array_merge(...array_values($sections));
         $rules = [
             'patientCategory' => ['nullable', Rule::in(array_keys(app(PatientCategories::class)->choices()))],
@@ -162,7 +158,7 @@ class PatientRegistration
             }
             $oldProfile = $profile?->getAttributes() ?? [];
             $profile ??= $patient->registrationProfile()->make();
-            $fields = array_merge(...array_values($this->sections($patient->birthdate, false, $category, $data['profile']['reproductive_applicable'] ?? null)));
+            $fields = array_merge(...array_values($this->sections($patient->birthdate, false, $category)));
             $values = $data['profile'] ?? [];
             foreach ($fields as $key => $field) {
                 $profile->{$key} = PatientRegistrationSchema::visible($key, $fields, $values) ? (($values[$key] ?? '') === '' ? null : $values[$key]) : null;

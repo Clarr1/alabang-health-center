@@ -19,12 +19,13 @@ class PatientCategories
         if (! is_string($birthdate) || preg_match('/^\d{4}-\d{2}-\d{2}$/D', $birthdate) !== 1) {
             return null;
         }
-        $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $birthdate, now('Asia/Manila')->getTimezone());
-        if ($parsed === false || $parsed->format('Y-m-d') !== $birthdate || $parsed > now('Asia/Manila')->startOfDay()) {
+        $today = now('Asia/Manila')->startOfDay();
+        $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $birthdate, $today->getTimezone());
+        if ($parsed === false || $parsed->format('Y-m-d') !== $birthdate || $parsed > $today) {
             return null;
         }
 
-        return $parsed->diff(now('Asia/Manila')->startOfDay())->y;
+        return $parsed->diff($today)->y;
     }
 
     public function suggest(mixed $birthdate): ?string

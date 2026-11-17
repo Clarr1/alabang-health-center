@@ -75,13 +75,13 @@
                 </div>
 
                 <div>
-                    <label for="contact_number" class="mb-1 block text-sm font-medium text-gray-700">Contact Number</label>
-                    <input id="contact_number" type="text" wire:model.defer="contact_number" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    <label for="contact_number" class="mb-1 block text-sm font-medium text-gray-700">Mobile Number <span aria-hidden="true">*</span></label>
+                    <input id="contact_number" type="tel" maxlength="20" required wire:model.defer="contact_number" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
                 </div>
 
                 <div>
-                    <label for="emergency_contact" class="mb-1 block text-sm font-medium text-gray-700">Emergency Contact</label>
-                    <input id="emergency_contact" type="text" wire:model.defer="emergency_contact" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    <label for="emergency_contact" class="mb-1 block text-sm font-medium text-gray-700">Emergency Contact <span aria-hidden="true">*</span></label>
+                    <input id="emergency_contact" type="text" maxlength="255" required wire:model.defer="emergency_contact" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
                 </div>
 
                 <div>

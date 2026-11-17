@@ -45,6 +45,7 @@ it('stores patient information and vital signs from the livewire form', function
 
 it('retains legacy form inputs and creates neither record on invalid vitals', function () {
     Livewire::actingAs(User::factory()->create())->test(PatientVitalSignForm::class)
+        ->set('contact_number', '09171234567')->set('emergency_contact', 'Jose Santos, relative, 09171234568')
         ->set('first_name', 'Synthetic')->set('last_name', 'Patient')->set('birthdate', '2000-01-01')
         ->set('address', 'Synthetic address')->set('blood_pressure', '120/')
         ->call('save')->assertHasErrors('blood_pressure')->assertSet('first_name', 'Synthetic');
@@ -53,6 +54,7 @@ it('retains legacy form inputs and creates neither record on invalid vitals', fu
 
 it('rolls back the legacy patient registration if the vital sign insert fails', function () {
     $form = Livewire::actingAs(User::factory()->create())->test(PatientVitalSignForm::class)
+        ->set('contact_number', '09171234567')->set('emergency_contact', 'Jose Santos, relative, 09171234568')
         ->set('first_name', 'Synthetic')->set('last_name', 'Patient')->set('birthdate', '2000-01-01')
         ->set('address', 'Synthetic address')->set('blood_pressure', '120/80');
     VitalSign::creating(function (): void {

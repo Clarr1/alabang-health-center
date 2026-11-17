@@ -75,17 +75,17 @@
 
     <section class="patient-card relative" aria-labelledby="patient-contact-title">
         <h2 id="patient-contact-title" class="text-base font-semibold">Contact details</h2>
-        <p class="mt-1 text-xs text-muted">Optional. Confirm contact details with the patient.</p>
+        <p class="mt-1 text-xs text-muted">Mobile number and emergency contact are required. Confirm these details with the patient.</p>
         <div class="mt-5 grid gap-4 sm:grid-cols-3">
             <div>
-                <label for="patient-contact_number" class="patient-label">Mobile number (optional)</label>
-                <input id="patient-contact_number" type="tel" maxlength="20" wire:model="contact_number" aria-describedby="patient-contact-help patient-contact_number-error" aria-invalid="{{ $errors->has('contact_number') ? 'true' : 'false' }}" class="patient-input w-full">
+                <label for="patient-contact_number" class="patient-label">Mobile number <span aria-hidden="true">*</span></label>
+                <input id="patient-contact_number" type="tel" maxlength="20" required wire:model="contact_number" aria-describedby="patient-contact-help patient-contact_number-error" aria-invalid="{{ $errors->has('contact_number') ? 'true' : 'false' }}" class="patient-input w-full">
                 <p id="patient-contact-help" class="mt-1 text-[11px] text-muted">Enter a number the patient can be reached on.</p>
                 <x-input-error id="patient-contact_number-error" :messages="$errors->get('contact_number')" class="mt-1" />
             </div>
             <div class="sm:col-span-2">
-                <label for="patient-emergency_contact" class="patient-label">Emergency contact (optional)</label>
-                <input id="patient-emergency_contact" type="text" maxlength="255" wire:model="emergency_contact" placeholder="Name, relationship, and mobile number" aria-describedby="patient-emergency-help patient-emergency_contact-error" aria-invalid="{{ $errors->has('emergency_contact') ? 'true' : 'false' }}" class="patient-input w-full">
+                <label for="patient-emergency_contact" class="patient-label">Emergency contact <span aria-hidden="true">*</span></label>
+                <input id="patient-emergency_contact" type="text" maxlength="255" required wire:model="emergency_contact" placeholder="Name, relationship, and mobile number" aria-describedby="patient-emergency-help patient-emergency_contact-error" aria-invalid="{{ $errors->has('emergency_contact') ? 'true' : 'false' }}" class="patient-input w-full">
                 <p id="patient-emergency-help" class="mt-1 text-[11px] text-muted">Keep the name, relationship, and emergency number together.</p>
                 <x-input-error id="patient-emergency_contact-error" :messages="$errors->get('emergency_contact')" class="mt-1" />
             </div>

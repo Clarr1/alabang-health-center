@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -51,14 +50,14 @@ trait RegistrationProfileFields
     #[Locked]
     public ?string $originalPatientCategory = null;
 
-    public function updatedPatientCategory(): void
+    public function updatingPatientCategory(): void
     {
-        Gate::authorize('queue-register');
-        $this->validateOnly('patientCategory', ['patientCategory' => ['required', Rule::in(array_keys(app(PatientCategories::class)->choices()))]]);
-        $this->categoryOverrideReason = '';
-        unset($this->profileSections, $this->categoryMismatch);
-        $this->pruneRegistrationProfile();
-        $this->showReview = false;
+        abort(403, 'The patient category is calculated from the birthdate.');
+    }
+
+    public function updatingCategoryOverrideReason(): void
+    {
+        abort(403, 'The patient category cannot be overridden.');
     }
 
     protected function pruneRegistrationProfile(): void
@@ -118,7 +117,7 @@ trait RegistrationProfileFields
     {
         Gate::authorize('patient-profile-manage');
 
-        return app(PatientRegistration::class)->sections(is_string($this->birthdate) ? $this->birthdate : '', false, $this->patientCategory, $this->profile['reproductive_applicable'] ?? null);
+        return app(PatientRegistration::class)->sections(is_string($this->birthdate) ? $this->birthdate : '', false, $this->patientCategory);
     }
 
     /** @return Collection<int, Household> */
@@ -169,7 +168,7 @@ trait RegistrationProfileFields
     {
         Gate::authorize('patient-profile-manage');
         $this->originalPatientCategory = $patient->patient_category;
-        $this->patientCategory = $patient->patient_category ?? app(PatientCategories::class)->suggest($patient->birthdate);
+        $this->patientCategory = $this->categoryForPatient($patient);
         $this->categoryOverrideReason = $patient->category_override_reason ?? '';
         unset($this->profileSections);
         $this->profile = [];
@@ -202,6 +201,11 @@ trait RegistrationProfileFields
     protected function registrationProfileInput(): array
     {
         return $this->only(['patientCategory', 'categoryOverrideReason', 'profile', 'householdMode', 'householdId', 'householdData', 'householdRelationship', 'transferReason', 'updateHousehold', 'selectedConditions', 'otherCondition', 'newDoses']);
+    }
+
+    protected function categoryForPatient(PatientInformation $patient): ?string
+    {
+        return $patient->patient_category ?? app(PatientCategories::class)->suggest($patient->birthdate);
     }
 
     protected function validateRegistrationProfile(bool $includeDoses = true): void

@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\PatientInformation;
+use App\Services\PatientCategories;
 use Closure;
 use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,7 +13,51 @@ use Livewire\Attributes\Computed;
 
 trait PatientFormFields
 {
-    use RegistrationProfileFields;
+    use RegistrationProfileFields {
+        profileSections as protected registrationProfileSections;
+    }
+
+    public function hydrate(): void
+    {
+        Gate::authorize('patient-profile-manage');
+        $this->synchronizePatientCategory();
+    }
+
+    public function updatedPatientCategory(): void
+    {
+        $this->synchronizePatientCategory();
+    }
+
+    protected function categoryForPatient(PatientInformation $patient): ?string
+    {
+        return app(PatientCategories::class)->suggest($patient->birthdate);
+    }
+
+    /** @return array<string, array<string, array<string, mixed>>> */
+    #[Computed]
+    public function profileSections(): array
+    {
+        return $this->patientCategory === null ? [] : $this->registrationProfileSections();
+    }
+
+    protected function synchronizePatientCategory(): void
+    {
+        $this->calculatePatientAge();
+        $category = app(PatientCategories::class)->suggest($this->birthdate);
+        if ($this->patientCategory !== $category) {
+            $this->showReview = false;
+        }
+        $this->patientCategory = $category;
+        $this->categoryOverrideReason = '';
+        unset($this->profileSections, $this->suggestedCategory, $this->categoryMismatch);
+        $allowedFields = array_keys(array_merge(...array_values($this->registrationProfileSections())));
+        $this->profile = array_intersect_key($this->profile, array_flip($allowedFields));
+    }
+
+    protected function validateAutomaticPatientCategory(): void
+    {
+        app(PatientCategories::class)->validate($this->patientCategory, '', $this->birthdate, true);
+    }
 
     public $first_name = '';
 
@@ -41,10 +86,8 @@ trait PatientFormFields
     public function updated(string $property): void
     {
         if ($property === 'birthdate') {
-            $this->calculatePatientAge();
-            unset($this->profileSections, $this->suggestedCategory, $this->categoryMismatch);
-            $allowedFields = array_keys(array_merge(...array_values($this->profileSections())));
-            $this->profile = array_intersect_key($this->profile, array_flip($allowedFields));
+            $this->synchronizePatientCategory();
+            $this->resetValidation(['birthdate', 'age', 'patientCategory', 'categoryOverrideReason']);
         }
 
         if (array_key_exists($property, $this->rules()) || str_contains($property, '.') || in_array($property, ['patientCategory', 'categoryOverrideReason', 'householdMode', 'householdId', 'householdRelationship', 'selectedConditions', 'otherCondition'], true)) {
@@ -56,6 +99,7 @@ trait PatientFormFields
     {
         Gate::authorize('queue-register');
         $this->validate();
+        $this->validateAutomaticPatientCategory();
         $this->validateRegistrationProfile();
         $this->showReview = true;
     }
@@ -107,12 +151,7 @@ trait PatientFormFields
 
     protected function calculatePatientAge(): void
     {
-        $today = now('Asia/Manila')->startOfDay();
-        $birthdate = $this->parsedPatientBirthdate();
-
-        $this->age = $birthdate !== null && $birthdate <= $today
-            ? $birthdate->diff($today)->y
-            : '';
+        $this->age = app(PatientCategories::class)->age($this->birthdate) ?? '';
     }
 
     protected function parsedPatientBirthdate(): ?DateTimeImmutable
@@ -144,8 +183,8 @@ trait PatientFormFields
             'sex' => ['required', 'in:Male,Female'],
             'address' => ['required', 'string'],
             'surveillance_residence' => ['required', 'in:Unverified,Alabang,Outside Scope'],
-            'contact_number' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+() .-]+$/'],
-            'emergency_contact' => ['nullable', 'string', 'max:255'],
+            'contact_number' => ['required', 'string', 'max:20', 'regex:/^[0-9+() .-]+$/'],
+            'emergency_contact' => ['required', 'string', 'max:255'],
             'registration_date' => ['bail', 'required', 'date_format:Y-m-d', ...($this->parsedPatientBirthdate() !== null ? ['after_or_equal:birthdate'] : []), 'before_or_equal:'.now('Asia/Manila')->toDateString()],
         ];
     }

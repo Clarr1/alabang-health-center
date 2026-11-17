@@ -16,7 +16,6 @@ use App\Models\PatientInformation;
 use App\Models\Queue;
 use App\Models\Symptom;
 use App\Models\User;
-use App\Services\PatientCategories;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -88,8 +87,6 @@ it('processes fifteen registered synthetic patients and five repeat visits witho
 
         foreach ($roster as $index => [$firstName, $lastName, $age]) {
             $registration = Livewire::actingAs($staff[$index % 2])->test(PatientInformationForm::class);
-            $registration->call('selectCategory', app(PatientCategories::class)->suggest(now('Asia/Manila')->subYears($age)->toDateString()) ?? 'Child')
-                ->set('categoryOverrideReason', 'Synthetic age exception for workflow test coverage.');
             if ($index === 0) {
                 $registration->call('savePatient')->assertHasErrors(['first_name', 'last_name', 'birthdate', 'address'])
                     ->assertSee('The first name field is required.');
@@ -100,8 +97,8 @@ it('processes fifteen registered synthetic patients and five repeat visits witho
                 'last_name' => 'SYNTHETIC '.$lastName,
                 'birthdate' => now('Asia/Manila')->subYears($age)->toDateString(),
                 'sex' => $index % 2 === 0 ? 'Female' : 'Male', 'address' => $address,
-                'contact_number' => $index % 2 === 0 ? '0900000'.str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT) : '',
-                'emergency_contact' => $index % 3 === 0 ? 'SYNTHETIC Guardian '.$lastName : '',
+                'contact_number' => '0900000'.str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT),
+                'emergency_contact' => 'SYNTHETIC Guardian '.$lastName.', 09000000000',
             ])->assertSet('age', $age)->call('reviewDetails')->assertHasNoErrors()->assertSet('showReview', true)
                 ->call('savePatient')->assertHasNoErrors()->assertDispatched('patient-information-saved');
             $patient = PatientInformation::findOrFail($registration->get('registeredPatientId'));

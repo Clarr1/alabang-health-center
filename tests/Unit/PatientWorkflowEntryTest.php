@@ -11,7 +11,6 @@ use App\Models\Queue;
 use App\Models\Symptom;
 use App\Models\User;
 use App\Models\VitalSign;
-use App\Services\PatientCategories;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -135,12 +134,12 @@ it('enters ten fictional patients through actual workflow actions and verifies c
             [$firstName, $middleName, $lastName] = $sample['name'];
             expect(PatientInformation::where('first_name', $firstName)->where('last_name', $lastName)->where('birthdate', $sample['birthdate'])->exists())->toBeFalse();
             $registration = Livewire::actingAs($staff)->test(PatientInformationForm::class)
-                ->call('selectCategory', app(PatientCategories::class)->suggest($sample['birthdate']) ?? 'Child')
-                ->set('categoryOverrideReason', 'Fictional age exception for workflow test coverage.')->set([
+                ->set([
                     'first_name' => $firstName, 'middle_name' => $middleName, 'last_name' => $lastName,
                     'birthdate' => $sample['birthdate'], 'sex' => $sample['sex'],
                     'address' => 'Fictional Unit '.($index + 1).', Barangay Alabang, Muntinlupa City 1780 [TEST DATA '.$batch.']',
-                    'contact_number' => '', 'emergency_contact' => 'Fictional emergency contact: '.$middleName.' '.$lastName,
+                    'contact_number' => '0900000'.str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT),
+                    'emergency_contact' => 'Fictional emergency contact: '.$middleName.' '.$lastName.', 09000000000',
                     'registration_date' => $date,
                 ])->call('reviewDetails')->assertHasNoErrors()->call('savePatient')->assertHasNoErrors()->assertDispatched('patient-information-saved');
             $patientId = $registration->get('registeredPatientId');

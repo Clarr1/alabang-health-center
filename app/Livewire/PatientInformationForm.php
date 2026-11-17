@@ -3,7 +3,6 @@
 namespace App\Livewire;
 
 use App\Models\PatientInformation;
-use App\Services\PatientCategories;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -27,35 +26,10 @@ class PatientInformationForm extends Component
     public ?int $registeredPatientId = null;
 
     #[Locked]
-    public bool $showCategorySelection = true;
-
-    #[Locked]
     public int $registrationStep = 1;
 
     #[Locked]
     public ?int $registrationHouseholdId = null;
-
-    public function selectCategory(string $category): void
-    {
-        Gate::authorize('queue-register');
-        abort_if($this->registeredPatientId !== null, 409);
-        validator(['patientCategory' => $category], ['patientCategory' => ['required', Rule::in(array_keys(app(PatientCategories::class)->choices()))]])->validate();
-        if ($this->patientCategory !== $category) {
-            $this->patientCategory = $category;
-            $this->updatedPatientCategory();
-        }
-        $this->showCategorySelection = false;
-        $this->registrationStep = 1;
-        $this->showReview = false;
-        $this->resetValidation();
-    }
-
-    public function backToCategories(): void
-    {
-        Gate::authorize('queue-register');
-        $this->showCategorySelection = true;
-        $this->showReview = false;
-    }
 
     public function continueRegistration(): void
     {
@@ -67,7 +41,7 @@ class PatientInformationForm extends Component
         }
         if ($this->registrationStep === 1) {
             $this->validate();
-            $this->validateSelectedCategory();
+            $this->validateAutomaticPatientCategory();
         } else {
             $this->validateRegistrationHousehold();
             $this->validateRegistrationProfile(false);
@@ -96,7 +70,7 @@ class PatientInformationForm extends Component
     {
         Gate::authorize('queue-register');
         $this->validate();
-        $this->validateSelectedCategory();
+        $this->validateAutomaticPatientCategory();
         $this->validateRegistrationHousehold();
         $this->validateRegistrationProfile();
         $this->showReview = true;
@@ -108,14 +82,6 @@ class PatientInformationForm extends Component
         Gate::authorize('queue-register');
         $this->showReview = false;
         $this->registrationStep = 4;
-    }
-
-    private function validateSelectedCategory(): void
-    {
-        app(PatientCategories::class)->validate($this->patientCategory, $this->categoryOverrideReason, $this->birthdate, true);
-        if ($this->categoryMismatch()) {
-            Gate::authorize('patient-category-override');
-        }
     }
 
     private function validateRegistrationHousehold(): void
@@ -151,7 +117,7 @@ class PatientInformationForm extends Component
         }
 
         $this->validate();
-        $this->validateSelectedCategory();
+        $this->validateAutomaticPatientCategory();
         $this->validateRegistrationHousehold();
         $this->validateRegistrationProfile();
 
@@ -194,7 +160,6 @@ class PatientInformationForm extends Component
         Gate::authorize('queue-register');
         $this->resetValidation();
         $this->resetRegistrationProfile();
-        $this->showCategorySelection = true;
         $this->registrationStep = 1;
         $this->registeredPatientId = null;
         unset($this->registeredPatient);

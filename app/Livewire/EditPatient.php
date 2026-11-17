@@ -32,6 +32,7 @@ class EditPatient extends Component
         $this->fill($patient->only(array_keys($this->rules())));
         $this->calculatePatientAge();
         $this->initializeRegistrationProfile($patient);
+        $this->synchronizePatientCategory();
     }
 
     public function rules(): array
@@ -47,6 +48,7 @@ class EditPatient extends Component
         Gate::authorize('queue-register');
 
         $validated = $this->validate();
+        $this->validateAutomaticPatientCategory();
         $this->validateRegistrationProfile();
         $patient = PatientInformation::findOrFail($this->patientId);
 

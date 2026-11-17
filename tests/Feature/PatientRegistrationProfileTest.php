@@ -10,7 +10,9 @@ use App\Models\PatientInformation;
 use App\Models\PatientProfile;
 use App\Models\PatientProfileAudit;
 use App\Models\User;
+use App\Services\PatientRegistration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -18,7 +20,7 @@ use Livewire\Livewire;
 function newRegistrationForProfile(?User $user = null): Testable
 {
     return Livewire::actingAs($user ?? User::factory()->create())->test(PatientInformationForm::class)
-        ->call('selectCategory', 'Adult')
+        ->set('contact_number', '09171234567')->set('emergency_contact', 'Jose Santos, relative, 09171234568')
         ->set('first_name', 'Maria')->set('last_name', 'Lopez')->set('birthdate', '1995-02-14')->set('address', 'Alabang, Muntinlupa City');
 }
 
@@ -120,13 +122,65 @@ it('shows conditional fields from the same schema used for validation', function
 it('shows child and adolescent sections for the selected category', function () {
     $form = newRegistrationForProfile(User::factory()->create(['role' => 'Admin']))
         ->set('birthdate', now('Asia/Manila')->subYears(3)->toDateString())
-        ->call('selectCategory', 'Child')
         ->assertSee('id="profile-vaccination_status"', false)->assertDontSee('id="profile-smoking"', false)
         ->assertDontSee('id="profile-headss_home"', false);
     $form->set('birthdate', now('Asia/Manila')->subYears(15)->toDateString())
-        ->call('selectCategory', 'Adolescent')
         ->assertDontSee('id="profile-vaccination_status"', false)->assertSee('id="profile-smoking"', false)
         ->assertSee('id="profile-headss_home"', false);
+});
+
+it('limits reproductive health fields to adolescent and adult categories when birthdays change', function (string $component) {
+    $staff = User::factory()->create(['role' => 'Admin']);
+    $patient = $component === EditPatient::class ? PatientInformation::factory()->create() : null;
+    $form = $patient === null
+        ? newRegistrationForProfile($staff)
+        : Livewire::actingAs($staff)->test(EditPatient::class, ['patient' => $patient]);
+
+    $form->assertSee('Women of Reproductive Age')->assertSee('id="profile-reproductive_applicable"', false)
+        ->set('birthdate', now('Asia/Manila')->subYears(9)->toDateString())
+        ->assertDontSee('Women of Reproductive Age')->assertDontSee('Reproductive Health Applicability')
+        ->assertDontSee('id="profile-reproductive_applicable"', false)
+        ->set('birthdate', now('Asia/Manila')->subYears(10)->toDateString())
+        ->assertSee('Women of Reproductive Age')->assertSee('id="profile-reproductive_applicable"', false)
+        ->set('profile.reproductive_applicable', 'Yes')->set('profile.pregnant', 'Unknown')
+        ->assertSee('id="profile-pregnant"', false)
+        ->set('birthdate', now('Asia/Manila')->subYears(20)->toDateString())
+        ->assertSee('Women of Reproductive Age')->assertSee('id="profile-pregnant"', false)
+        ->set('birthdate', now('Asia/Manila')->subYears(9)->toDateString())
+        ->assertDontSee('Women of Reproductive Age')->assertDontSee('id="profile-pregnant"', false)
+        ->call($patient === null ? 'savePatient' : 'saveChanges')->assertHasNoErrors();
+
+    $saved = $patient?->fresh() ?? PatientInformation::findOrFail($form->get('registeredPatientId'));
+    expect($saved->patient_category)->toBe('Child')->and($saved->registrationProfile->reproductive_applicable)->toBeNull()
+        ->and($saved->registrationProfile->pregnant)->toBeNull();
+})->with([PatientInformationForm::class, EditPatient::class]);
+
+it('rejects reproductive health fields submitted for a child on the backend', function () {
+    $this->actingAs(User::factory()->create(['role' => 'Admin']));
+
+    expect(fn () => app(PatientRegistration::class)->validate([
+        'patientCategory' => 'Child', 'householdMode' => 'none',
+        'profile' => ['reproductive_applicable' => 'Yes', 'pregnant' => 'Unknown'],
+    ], now('Asia/Manila')->subYears(9)->toDateString()))->toThrow(ValidationException::class);
+    expect(PatientInformation::count())->toBe(0);
+});
+
+it('preserves saved reproductive assessments in history when a birthday correction selects child', function () {
+    $patient = PatientInformation::factory()->create(['patient_category' => 'Adult']);
+    PatientProfile::factory()->create([
+        'patient_id' => $patient->patient_id, 'reproductive_applicable' => 'Yes',
+        'pregnant' => 'Unknown', 'family_planning' => 'Previously recorded assessment',
+    ]);
+    $staff = User::factory()->create(['role' => 'Admin']);
+
+    Livewire::actingAs($staff)->test(EditPatient::class, ['patient' => $patient])
+        ->set('birthdate', now('Asia/Manila')->subYears(9)->toDateString())
+        ->assertDontSee('Women of Reproductive Age')->assertDontSee('Previously recorded assessment')
+        ->call('saveChanges')->assertHasNoErrors();
+    expect($patient->fresh()->patient_category)->toBe('Child')
+        ->and($patient->registrationProfile->family_planning)->toBe('Previously recorded assessment');
+    Livewire::actingAs($staff)->test(PatientProfileForm::class, ['patientId' => $patient->patient_id])
+        ->assertDontSee('Previously recorded assessment')->call('viewHistory')->assertSee('Previously recorded assessment');
 });
 
 it('validates dates email income and numeric profile details', function (string $field, mixed $value, string $error) {
