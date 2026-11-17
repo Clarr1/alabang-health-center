@@ -156,16 +156,18 @@ class SyndromicSurveillance extends Component
     public function render(): View
     {
         Gate::authorize('surveillance-view');
-        $latest = SurveillanceRun::where('status', 'Completed')->latest('window_end')->latest('id')->with('results')->first();
+        $summaryColumns = ['id', 'surveillance_run_id', 'syndrome_category_id', 'syndrome_name', 'observed', 'expected', 'outcome'];
+        $latest = SurveillanceRun::where('status', 'Completed')->latest('window_end')->latest('id')->with('results:'.implode(',', $summaryColumns))->first();
         $alerts = $this->dateFilters(SurveillanceAlert::whereNotNull('surveillance_result_id'), 'detected_at')
             ->when(ctype_digit($this->syndromeFilter), fn (Builder $query): Builder => $query->where('syndrome_category_id', $this->syndromeFilter))
             ->when(in_array($this->statusFilter, SurveillanceAlert::STATUSES, true), fn (Builder $query): Builder => $query->where('status', $this->statusFilter));
         $selected = $this->selectedAlertId !== null && Gate::allows('surveillance-review')
             ? SurveillanceAlert::with('result.run', 'result.cases.record.patient', 'reviews.user', 'reviewer')->findOrFail($this->selectedAlertId) : null;
-        $trends = SurveillanceResult::with('run')->whereHas('run', fn (Builder $query): Builder => $this->dateFilters($query->where('status', 'Completed'), 'window_end'))
+        $trends = SurveillanceResult::select($summaryColumns)->with('run')->whereHas('run', fn (Builder $query): Builder => $this->dateFilters($query->where('status', 'Completed'), 'window_end'))
             ->when(ctype_digit($this->syndromeFilter), fn (Builder $query): Builder => $query->where('syndrome_category_id', $this->syndromeFilter))
             ->latest('id')->limit(120)->get()->reverse()->groupBy('syndrome_name');
-        $runs = SurveillanceRun::with(['results' => function (HasMany $results): void {
+        $runs = SurveillanceRun::with(['results' => function (HasMany $results) use ($summaryColumns): void {
+            $results->select($summaryColumns);
             if (ctype_digit($this->syndromeFilter)) {
                 $results->where('syndrome_category_id', $this->syndromeFilter);
             }
@@ -174,7 +176,7 @@ class SyndromicSurveillance extends Component
         return view('livewire.syndromic-surveillance', [
             'latest' => $latest,
             'results' => $latest?->results->when(ctype_digit($this->syndromeFilter), fn ($rows) => $rows->where('syndrome_category_id', $this->syndromeFilter)) ?? collect(),
-            'alerts' => $alerts->with('result.run', 'reviewer')->latest('id')->paginate(10),
+            'alerts' => $alerts->with('result:'.implode(',', $summaryColumns), 'result.run', 'reviewer')->latest('id')->paginate(10),
             'categories' => SyndromeCategory::orderBy('name')->get(), 'selected' => $selected,
             'reviewStatuses' => $selected ? app(SurveillanceReview::class)->allowedStatuses($selected->status) : [],
             'activeAlerts' => SurveillanceAlert::whereNotNull('surveillance_result_id')->whereIn('status', ['New', 'Under Review', 'Escalated'])->count(),
