@@ -143,10 +143,10 @@ it('enters ten fictional patients through actual workflow actions and verifies c
                     'registration_date' => $date,
                 ])->call('reviewDetails')->assertHasNoErrors()->call('savePatient')->assertHasNoErrors()->assertDispatched('patient-information-saved');
             $patientId = $registration->get('registeredPatientId');
-            $number = max(100, (int) Queue::whereDate('queue_date', $date)->max('queue_number')) + 1;
             Livewire::actingAs($staff)->test(QueueManagement::class)->call('selectPatient', $patientId)
-                ->set('queueNumber', $number)->call('prepareAssignment')->assertHasNoErrors()->call('addPatient')->assertHasNoErrors();
+                ->call('addPatient')->assertHasNoErrors();
             $visit = Queue::where('patient_id', $patientId)->sole();
+            $number = $visit->queue_number;
             Livewire::actingAs($staff)->test(VitalSignsForm::class)->call('selectQueue', $visit->queue_id, 'Waiting')->assertHasNoErrors()
                 ->set(['blood_pressure' => $sample['bp'], 'temperature' => $sample['temperature'], 'pulse_rate' => $sample['pulse'],
                     'respiratory_rate' => $sample['respiration'], 'height' => $sample['height'], 'weight' => $sample['weight']])

@@ -16,13 +16,10 @@ it('searches existing patients by name and ID and prevents duplicate adds', func
         ->set('patientSearch', 'Maria Santos')->assertSee('Maria')
         ->set('patientSearch', (string) $patient->patient_id)->assertSee('Maria')
         ->call('selectPatient', $patient->patient_id)
-        ->set('queueNumber', '42')->call('prepareAssignment')->assertHasNoErrors()
-        ->assertDispatched('queue-assignment-prepared', message: "Add Maria {$patient->middle_name} Santos to the queue with assigned number 42?")->assertSet('pendingQueueNumber', 42)
         ->call('addPatient')->assertHasNoErrors()
-        ->assertSee('Assigned queue number: 42')
-        ->assertSet('selectedPatientId', null)->assertSet('queueNumber', '')
-        ->call('selectPatient', $patient->patient_id)->set('queueNumber', '99')
-        ->call('prepareAssignment')->assertHasErrors('queue');
+        ->assertSee('Assigned queue number: 001')
+        ->assertSet('selectedPatientId', null)
+        ->call('selectPatient', $patient->patient_id)->call('addPatient')->assertHasErrors('queue');
     expect(Queue::count())->toBe(1)->and(PatientInformation::count())->toBe(1);
 });
 
@@ -37,11 +34,14 @@ it('filters by patient name ID queue number status and date and paginates', func
         ->assertSet('queueDate', now('Asia/Manila')->toDateString())
         ->set('search', 'Maria Santos')->assertSee('Maria')
         ->set('search', '77')->assertSee('Maria')
+        ->set('search', '077')->assertSee('Maria')
         ->set('search', (string) $patient->patient_id)->assertSee('Maria')
         ->set('search', '')->set('status', 'Called')->assertSee('Maria')
         ->set('status', 'Completed')->assertSee('No patients are queued')
         ->set('status', '')->call('setPage', 2)->assertSee('Maria')
         ->set('queueDate', '2000-01-01')->assertSee('No patients are queued');
+    $component->set('queueDate', now('Asia/Manila')->toDateString())->set('search', '077');
+    expect($component->get('queues')->pluck('queue_number')->all())->toBe([77]);
 });
 
 it('shows staff actions and rejects manually submitted doctor actions', function () {
@@ -86,42 +86,32 @@ it('handles invalid filters without querying an unintended date or status', func
         ->set('status', 'Invalid Status')->assertHasErrors('status')->assertSee('No patients are queued');
 });
 
-it('requires selection a valid number and a confirmation step before saving', function () {
+it('only requires patient selection and assigns a number when the visit is saved', function () {
     $patient = PatientInformation::factory()->create();
     $component = Livewire::actingAs(User::factory()->create())->test(QueueManagement::class)
-        ->call('addPatient')->assertHasErrors('queue')
-        ->call('prepareAssignment')->assertHasErrors(['selectedPatientId', 'queueNumber'])
-        ->call('selectPatient', $patient->patient_id)
-        ->call('prepareAssignment')->assertHasErrors('queueNumber')
-        ->set('queueNumber', '1.5')->call('prepareAssignment')->assertHasErrors('queueNumber');
+        ->assertDontSee('id="assigned-queue-number"', false)->assertDontSee('wire:model="queueNumber"', false)
+        ->call('addPatient')->assertHasErrors('selectedPatientId')
+        ->call('selectPatient', $patient->patient_id);
     expect(Queue::count())->toBe(0);
-    $component->set('queueNumber', '42')->call('prepareAssignment')->assertHasNoErrors()
-        ->assertSet('pendingPatientId', $patient->patient_id)->assertSet('pendingQueueNumber', 42)
-        ->assertDispatched('queue-assignment-prepared', fn (string $event, array $parameters): bool => str_contains($parameters['message'], 'queue with assigned number 42?'));
-    expect(Queue::count())->toBe(0);
-    $component->set('queueNumber', '99')->call('addPatient')->assertHasNoErrors();
-    expect(Queue::firstOrFail()->queue_number)->toBe(42);
+    $component->call('addPatient')->assertHasNoErrors()->assertSee('Assigned queue number: 001');
+    expect(Queue::firstOrFail()->queue_number)->toBe(1);
 });
 
-it('reports a clear number conflict if another staff member saves after confirmation opens', function () {
+it('allocates consecutive numbers when two staff panels have selected different patients', function () {
     $firstStaff = User::factory()->create();
     $secondStaff = User::factory()->create();
     $firstPatient = PatientInformation::factory()->create();
     $secondPatient = PatientInformation::factory()->create();
     $first = Livewire::actingAs($firstStaff)->test(QueueManagement::class)
-        ->call('selectPatient', $firstPatient->patient_id)->set('queueNumber', '42')
-        ->call('prepareAssignment')->assertHasNoErrors();
+        ->call('selectPatient', $firstPatient->patient_id);
     $second = Livewire::actingAs($secondStaff)->test(QueueManagement::class)
-        ->call('selectPatient', $secondPatient->patient_id)->set('queueNumber', '42')
-        ->call('prepareAssignment')->assertHasNoErrors();
+        ->call('selectPatient', $secondPatient->patient_id);
     $this->actingAs($firstStaff);
     $first->call('addPatient')->assertHasNoErrors();
     $this->actingAs($secondStaff);
-    $second->call('addPatient')->assertHasErrors('queueNumber')
-        ->assertSee('already been assigned today')
-        ->assertSet('selectedPatientId', $secondPatient->patient_id)->assertSet('queueNumber', '42')
-        ->assertDispatched('queue-assignment-finished');
-    expect(Queue::count())->toBe(1)->and(Queue::firstOrFail()->assigned_by)->toBe($firstStaff->user_id);
+    $second->call('addPatient')->assertHasNoErrors()->assertSee('Assigned queue number: 002');
+    expect(Queue::orderBy('queue_number')->pluck('queue_number')->all())->toBe([1, 2])
+        ->and(Queue::orderBy('queue_number')->pluck('assigned_by')->all())->toBe([$firstStaff->user_id, $secondStaff->user_id]);
 });
 
 it('shows today’s used numbers including closed visits and sorts waiting patients numerically', function () {
@@ -143,36 +133,33 @@ it('shows today’s used numbers including closed visits and sorts waiting patie
     expect($component->get('assignedNumbers')->pluck('queue_number')->all())->toBe([2, 10, 42, 50, 60, 99, 101]);
 });
 
-it('requires confirmation again when the Manila date changes', function () {
+it('uses the current Manila date even when a patient was selected before midnight', function () {
     $this->travelTo(new DateTimeImmutable('2026-10-10 15:59:00 UTC'));
     $patient = PatientInformation::factory()->create();
     $component = Livewire::actingAs(User::factory()->create())->test(QueueManagement::class)
-        ->call('selectPatient', $patient->patient_id)->set('queueNumber', '42')
-        ->call('prepareAssignment')->assertHasNoErrors();
+        ->call('selectPatient', $patient->patient_id);
     $this->travelTo(new DateTimeImmutable('2026-10-10 16:01:00 UTC'));
-    $component->call('addPatient')->assertHasErrors('queueNumber')->assertSee('queue date has changed');
-    expect(Queue::count())->toBe(0);
-    $component->call('prepareAssignment')->call('addPatient')->assertHasNoErrors();
-    expect(Queue::firstOrFail()->queue_date->toDateString())->toBe('2026-10-11');
+    $component->call('addPatient')->assertHasNoErrors()->assertSee('Assigned queue number: 001');
+    expect(Queue::firstOrFail()->queue_date->toDateString())->toBe('2026-10-11')
+        ->and(Queue::firstOrFail()->queue_number)->toBe(1);
 });
 
 it('preselects the registered patient without assigning a number', function () {
     $patient = PatientInformation::factory()->create();
     Livewire::actingAs(User::factory()->create())->withQueryParams(['patient' => $patient->patient_id])
         ->test(QueueManagement::class)->assertSet('selectedPatientId', $patient->patient_id)
-        ->assertSet('queueNumber', '')->assertSet('pendingQueueNumber', null);
+        ->assertDontSee('id="assigned-queue-number"', false);
     expect(Queue::count())->toBe(0);
 });
 
-it('invalidates a pending assignment when staff select another patient', function () {
+it('adds the currently selected patient when staff change their selection', function () {
     $patient = PatientInformation::factory()->create();
     $otherPatient = PatientInformation::factory()->create();
     Livewire::actingAs(User::factory()->create())->test(QueueManagement::class)
-        ->call('selectPatient', $patient->patient_id)->set('queueNumber', '42')
-        ->call('prepareAssignment')->assertHasNoErrors()
+        ->call('selectPatient', $patient->patient_id)
         ->call('selectPatient', $otherPatient->patient_id)
-        ->call('addPatient')->assertHasErrors('queue');
-    expect(Queue::count())->toBe(0);
+        ->call('addPatient')->assertHasNoErrors();
+    expect(Queue::sole()->patient_id)->toBe($otherPatient->patient_id)->and($patient->queues()->count())->toBe(0);
 });
 
 it('requires authentication and denies queue clinical routes to the wrong role', function () {

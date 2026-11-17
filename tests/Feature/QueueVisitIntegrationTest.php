@@ -20,27 +20,26 @@ it('runs registration through vital signs consultation and completed medical rec
     Livewire::actingAs($staff)->test(PatientInformationForm::class)
         ->set('contact_number', '09171234567')->set('emergency_contact', 'Jose Santos, relative, 09171234568')
         ->set('first_name', 'Maria')->set('last_name', 'Santos')
-        ->set('birthdate', '1990-01-01')->set('age', 36)->set('sex', 'Female')
+        ->set('birthdate', '1990-01-01')->set('sex', 'Female')
         ->set('address', 'Alabang')->call('savePatient')->assertHasNoErrors()
         ->assertDispatched('patient-information-saved');
     $patient = PatientInformation::firstOrFail();
     expect(Queue::count())->toBe(0);
     Livewire::actingAs($staff)->test(QueueManagement::class)
-        ->call('selectPatient', $patient->patient_id)->set('queueNumber', '42')
-        ->call('prepareAssignment')->assertHasNoErrors()
-        ->call('addPatient')->assertHasNoErrors();
+        ->call('selectPatient', $patient->patient_id)->call('addPatient')->assertHasNoErrors()
+        ->assertSee('Assigned queue number: 001');
     $queue = Queue::firstOrFail();
-    expect($queue->status)->toBe('Waiting')->and($queue->queue_number)->toBe(42)->and($queue->assigned_by)->toBe($staff->user_id);
+    expect($queue->status)->toBe('Waiting')->and($queue->queue_number)->toBe(1)->and($queue->assigned_by)->toBe($staff->user_id);
     $workflow = app(QueueWorkflow::class);
     $workflow->transition($queue->queue_id, 'Waiting', 'Called');
     $workflow->transition($queue->queue_id, 'Called', 'Vital Signs');
 
     $vitals = Livewire::actingAs($staff)->test(VitalSignsForm::class, [
         'patient_id' => $queue->patient_id, 'queue_id' => $queue->queue_id,
-    ])->set('blood_pressure', '120/80')->set('height', 160)->set('weight', 55)
+    ])->assertSee('Queue 001')->set('blood_pressure', '120/80')->set('height', 160)->set('weight', 55)
         ->call('saveVitalSigns')->assertHasNoErrors()->assertSet('queueId', null)->assertSet('patient_id', null)->assertDispatched('vital-signs-saved');
     expect($queue->fresh()->status)->toBe('Ready for Consultation')
-        ->and($queue->fresh()->queue_number)->toBe(42)
+        ->and($queue->fresh()->queue_number)->toBe(1)
         ->and($queue->vitalSign->bmi)->toEqual(21.5)
         ->and($queue->vitalSign->patient->patient_id)->toBe($queue->patient_id);
     $vitals->call('saveVitalSigns')->assertHasErrors('patient_id');
@@ -50,11 +49,11 @@ it('runs registration through vital signs consultation and completed medical rec
     $workflow->transition($queue->queue_id, 'Ready for Consultation', 'In Consultation');
     $medical = Livewire::actingAs($doctor)->test(MedicalRecordsForm::class, [
         'patient_id' => $queue->patient_id, 'queue_id' => $queue->queue_id,
-    ])->assertSet('vital_signs_id', $queue->vitalSign->vital_id)->assertSee('120/80')
+    ])->assertSee('Queue 001')->assertSet('vital_signs_id', $queue->vitalSign->vital_id)->assertSee('120/80')
         ->set('diagnosis', 'Seasonal allergies')->set('prescription', 'Cetirizine')->set('treatment', 'Rest')->set('consultation_notes', 'Sneezing')
         ->call('saveMedicalRecord')->assertHasNoErrors()->assertNoRedirect()->assertDispatched('medical-record-saved');
     expect($queue->fresh()->status)->toBe('Completed')
-        ->and($queue->fresh()->queue_number)->toBe(42)
+        ->and($queue->fresh()->queue_number)->toBe(1)
         ->and($queue->fresh()->completed_at)->not->toBeNull()
         ->and($queue->medicalRecord->patient_id)->toBe($queue->patient_id);
     $medical->call('saveMedicalRecord')->assertHasErrors('patient_id');

@@ -12,7 +12,7 @@ class PatientInformationFactory extends Factory
     {
         return [
             'first_name' => fake()->firstName(), 'last_name' => fake()->lastName(),
-            'birthdate' => '1990-01-01', 'age' => 36, 'sex' => 'Female',
+            'birthdate' => '1990-01-01', 'sex' => 'Female',
             'address' => fake()->address(), 'contact_number' => '09171234567',
             'emergency_contact' => 'Jose Santos, relative, 09171234568',
             'registration_date' => now('Asia/Manila')->toDateString(), 'status' => 'Active',

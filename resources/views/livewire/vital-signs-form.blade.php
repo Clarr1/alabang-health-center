@@ -32,7 +32,7 @@
                 @forelse ($this->vitalSignsQueue as $entry)
                     <div wire:key="vital-queue-{{ $entry->queue_id }}-{{ $entry->status }}" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
                         <div class="min-w-0 text-sm">
-                            <p class="font-semibold">#{{ $entry->queue_number }} &middot; {{ $entry->patient->first_name }} {{ $entry->patient->middle_name }} {{ $entry->patient->last_name }}</p>
+                            <p class="font-semibold">#{{ $entry->formattedQueueNumber() }} &middot; {{ $entry->patient->first_name }} {{ $entry->patient->middle_name }} {{ $entry->patient->last_name }}</p>
                             <span class="mt-1 inline-block rounded bg-brand-blue px-2 py-1 text-[11px]">{{ $entry->status }}</span>
                         </div>
                         <button type="button" wire:click="selectQueue({{ $entry->queue_id }}, '{{ $entry->status }}')" wire:loading.attr="disabled" wire:target="selectQueue,saveVitalSigns" class="patient-button bg-brand-blue text-xs">Record Vital Signs</button>
@@ -74,7 +74,7 @@
             </div>
             @if ($currentQueue)
                 <div class="text-xs sm:text-right">
-                    <p class="font-semibold">Queue {{ $currentQueue->queue_number }}</p>
+                    <p class="font-semibold">Queue {{ $currentQueue->formattedQueueNumber() }}</p>
                     <p class="mt-1 text-muted">{{ $currentQueue->queue_date->format('d M Y') }} &middot; {{ $currentQueue->created_at->timezone('Asia/Manila')->format('h:i A') }}</p>
                 </div>
             @else
@@ -159,7 +159,7 @@
                     <h2 id="vital-visit-title" class="text-sm font-semibold">Visit status</h2>
                     <span class="mt-4 inline-block rounded bg-brand-blue px-2 py-1 text-[11px] font-medium">{{ $currentQueue?->status ?: ($patient ? 'Standalone measurement' : 'Select a patient') }}</span>
                     @if ($currentQueue)
-                        <p class="mt-4 text-xs">Queue {{ $currentQueue->queue_number }}</p>
+                        <p class="mt-4 text-xs">Queue {{ $currentQueue->formattedQueueNumber() }}</p>
                         <p class="mt-3 text-xs text-muted">Saving will mark this visit Ready for Consultation.</p>
                     @else
                         <p class="mt-4 text-xs leading-relaxed text-muted">{{ $patient ? 'No queue visit selected. Select a queue patient to continue to consultation.' : 'Choose a patient from the queue or patient search.' }}</p>

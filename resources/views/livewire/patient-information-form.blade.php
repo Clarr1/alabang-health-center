@@ -1,4 +1,4 @@
-<div x-data class="relative mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8 lg:py-8">
+<div wire:poll.60s x-data class="relative mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8 lg:py-8">
     <img src="{{ asset('images/barangay-alabang.png') }}" alt="" aria-hidden="true" class="pointer-events-none absolute right-4 top-5 w-[440px] max-w-[70%] rounded-full opacity-[0.035]">
     <nav aria-label="Breadcrumb" class="relative mb-3 text-xs text-muted"><ol class="flex flex-wrap items-center gap-2"><li>Patient Management</li><li aria-hidden="true">/</li><li aria-current="page">Patient Registration</li></ol></nav>
     @if ($registrationHouseholdId !== null)

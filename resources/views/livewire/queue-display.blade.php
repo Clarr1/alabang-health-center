@@ -42,7 +42,7 @@
                                 <div wire:key="serving-{{ $displayDay }}-{{ $key }}-{{ $entry['number'] }}"
                                     class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 rounded border bg-white px-4 py-3 {{ $entry['highlighted'] ? 'border-red-500 border-l-8 text-red-600' : 'border-gray-200 text-emerald-700' }}">
                                     <div class="min-w-0">
-                                        <p class="break-all text-4xl font-bold tabular-nums sm:text-5xl xl:text-6xl">{{ $entry['number'] }}</p>
+                                        <p class="break-all text-4xl font-bold tabular-nums sm:text-5xl xl:text-6xl">{{ str_pad((string) $entry['number'], 3, '0', STR_PAD_LEFT) }}</p>
                                         @if ($entry['highlighted'])
                                             <p class="mt-1 text-xs font-bold uppercase tracking-wider sm:text-sm">Proceed now</p>
                                         @endif
@@ -71,7 +71,7 @@
                             <div class="flex flex-wrap gap-x-6 gap-y-2">
                                 @forelse ($stage['waiting'] as $number)
                                     <span wire:key="waiting-{{ $displayDay }}-{{ $key }}-{{ $number }}"
-                                        class="text-3xl font-bold tabular-nums text-amber-700 sm:text-4xl">{{ $number }}</span>
+                                        class="text-3xl font-bold tabular-nums text-amber-700 sm:text-4xl">{{ str_pad((string) $number, 3, '0', STR_PAD_LEFT) }}</span>
                                 @empty
                                     <p class="text-lg text-gray-500">No waiting numbers.</p>
                                 @endforelse

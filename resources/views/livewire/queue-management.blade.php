@@ -1,4 +1,4 @@
-<div x-data="{ checkInOpen: @js($selectedPatientId !== null || trim($patientSearch) !== '') }" x-on:queue-assignment-prepared="if (window.confirm($event.detail.message)) { $wire.addPatient() }" wire:poll.10s class="relative mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8 lg:py-8">
+<div x-data="{ checkInOpen: @js($selectedPatientId !== null || trim($patientSearch) !== '') }" wire:poll.10s class="relative mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8 lg:py-8">
     @php($queues = $this->queues)
     <img src="{{ asset('images/barangay-alabang.png') }}" alt="" aria-hidden="true" class="pointer-events-none absolute right-4 top-5 w-[440px] max-w-[70%] rounded-full opacity-[0.035]">
     <div class="relative mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -29,7 +29,7 @@
     @can('queue-register')
         <section x-cloak x-show="checkInOpen" x-ref="checkInSection" id="queue-check-in" class="patient-card relative mb-6" aria-labelledby="check-in-title">
             <div class="mb-5 flex items-center justify-between gap-3"><h2 id="check-in-title" class="text-base font-semibold">Check in patient</h2><button type="button" x-on:click="checkInOpen = false; $refs.checkInToggle.focus()" class="patient-button px-3 py-2 text-xs">Close check-in</button></div>
-            <form wire:submit="prepareAssignment" class="space-y-4">
+            <form wire:submit="addPatient" class="space-y-4">
                 <div>
                     <label for="queue-patient-search" class="patient-label">Add an existing patient</label>
                     <input id="queue-patient-search" x-on:keydown.enter.prevent type="search" wire:model.live.debounce.300ms="patientSearch" placeholder="Patient name or ID" class="patient-input w-full">
@@ -57,22 +57,17 @@
                         <p class="mt-1">{{ $this->selectedPatient->contact_number ?: 'No contact number' }}</p>
                     </div>
                 @else
-                    <p class="text-sm text-muted">Select a patient, then enter the queue number you are assigning.</p>
+                    <p class="text-sm text-muted">Select a patient, then add them to the queue.</p>
                 @endif
 
-                <div class="sm:max-w-xs">
-                    <label for="assigned-queue-number" class="patient-label">Queue Number <span class="text-red-600">*</span></label>
-                    <input id="assigned-queue-number" type="number" wire:model="queueNumber" min="1" max="4294967295" step="1" required class="patient-input w-full" aria-describedby="assigned-number-help">
-                    <p id="assigned-number-help" class="mt-1 text-sm text-muted">Enter a positive whole number. Numbers already assigned today cannot be reused.</p>
-                    <x-input-error :messages="$errors->get('queueNumber')" class="mt-2" />
-                </div>
+                <p class="text-sm text-muted">The next queue number is assigned automatically when the patient is added. Numbering starts at 001 each day.</p>
 
                 <div class="rounded-md border border-line p-4">
                     <h2 class="text-sm font-semibold text-ink">Today's assigned queue numbers · {{ now('Asia/Manila')->format('M j, Y') }}</h2>
                     <p class="mt-1 text-xs text-muted">Includes Completed, Cancelled, and No Show visits.</p>
                     <div class="mt-3 flex flex-wrap gap-2">
                         @forelse ($this->assignedNumbers as $assignedQueue)
-                            <span wire:key="assigned-number-{{ $assignedQueue->queue_id }}" title="{{ $assignedQueue->status }}" class="rounded-full bg-blush px-3 py-1 text-sm font-semibold text-ink">{{ $assignedQueue->queue_number }}</span>
+                            <span wire:key="assigned-number-{{ $assignedQueue->queue_id }}" title="{{ $assignedQueue->status }}" class="rounded-full bg-blush px-3 py-1 text-sm font-semibold text-ink">{{ $assignedQueue->formattedQueueNumber() }}</span>
                         @empty
                             <p class="text-sm text-muted">No queue numbers have been assigned today.</p>
                         @endforelse
@@ -139,7 +134,7 @@
                     <tbody class="divide-y divide-line border-b border-line">
                         @forelse ($queues as $queue)
                             <tr wire:key="queue-{{ $queue->queue_id }}-{{ $queue->status }}" class="transition-colors hover:bg-blush/60">
-                                <td class="px-3 py-4 font-semibold">{{ $queue->queue_number }}</td>
+                                <td class="px-3 py-4 text-base font-semibold tabular-nums">{{ $queue->formattedQueueNumber() }}</td>
                                 <td class="px-3 py-4">
                                     <span class="block font-medium">{{ trim(implode(' ', array_filter([$queue->patient?->first_name, $queue->patient?->middle_name, $queue->patient?->last_name]))) ?: 'Patient unavailable' }}</span>
                                     <span class="mt-1 block text-[11px] text-muted">Patient #{{ $queue->patient_id }}</span>
@@ -163,7 +158,7 @@
                                                 @elseif ($nextStatus === 'Completed')
                                                     <a href="{{ route('queues.consultation', ['patient_id' => $queue->patient_id, 'queue_id' => $queue->queue_id]) }}" wire:navigate class="patient-button whitespace-nowrap px-3 py-2 text-xs">Complete Consultation</a>
                                                 @else
-                                                    <button type="button" wire:click="changeStatus({{ $queue->queue_id }}, '{{ $queue->status }}', '{{ $nextStatus }}')" wire:confirm="{{ $label }} for queue #{{ $queue->queue_number }}?" wire:loading.attr="disabled" class="patient-button whitespace-nowrap px-3 py-2 text-xs">{{ $label }}</button>
+                                                    <button type="button" wire:click="changeStatus({{ $queue->queue_id }}, '{{ $queue->status }}', '{{ $nextStatus }}')" wire:confirm="{{ $label }} for queue #{{ $queue->formattedQueueNumber() }}?" wire:loading.attr="disabled" class="patient-button whitespace-nowrap px-3 py-2 text-xs">{{ $label }}</button>
                                                 @endif
                                             @endcan
                                         @endforeach

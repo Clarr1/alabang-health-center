@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use DateTimeImmutable;
+use DateTimeInterface;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -14,14 +15,22 @@ class PatientCategories
         return config('patient-registration.categories');
     }
 
-    public function age(mixed $birthdate): ?int
+    public function birthdate(mixed $value): ?DateTimeImmutable
     {
-        if (! is_string($birthdate) || preg_match('/^\d{4}-\d{2}-\d{2}$/D', $birthdate) !== 1) {
+        if (! is_string($value) || preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) !== 1) {
             return null;
         }
-        $today = now('Asia/Manila')->startOfDay();
-        $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $birthdate, $today->getTimezone());
-        if ($parsed === false || $parsed->format('Y-m-d') !== $birthdate || $parsed > $today) {
+        $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $value, now('Asia/Manila')->getTimezone());
+
+        return $parsed !== false && $parsed->format('Y-m-d') === $value ? $parsed : null;
+    }
+
+    public function age(mixed $birthdate, ?DateTimeInterface $asOf = null): ?int
+    {
+        $today = $asOf === null ? now('Asia/Manila')->startOfDay()
+            : DateTimeImmutable::createFromInterface($asOf)->setTimezone(now('Asia/Manila')->getTimezone())->setTime(0, 0);
+        $parsed = $this->birthdate($birthdate);
+        if ($parsed === null || $parsed > $today) {
             return null;
         }
 
@@ -50,11 +59,9 @@ class PatientCategories
 
     public function validate(?string $category, string $reason, mixed $birthdate, bool $required = false): void
     {
-        $reason = trim($reason);
-        $mismatches = $this->mismatches($category, $birthdate);
         Validator::make(['patientCategory' => $category, 'categoryOverrideReason' => $reason], [
-            'patientCategory' => [$required ? 'required' : 'nullable', Rule::in(array_keys($this->choices()))],
-            'categoryOverrideReason' => [Rule::requiredIf($mismatches), 'nullable', 'string', ...($mismatches ? ['min:10', 'not_regex:/^\s*$/u'] : []), 'max:1000'],
-        ], ['categoryOverrideReason.required' => 'Explain why this category is appropriate despite the calculated age.'])->validate();
+            'patientCategory' => [$required ? 'required' : 'nullable', Rule::in(array_keys($this->choices())), Rule::in([$this->suggest($birthdate)])],
+            'categoryOverrideReason' => ['prohibited'],
+        ], ['patientCategory.in' => 'The category must match the patient’s current age.'])->validate();
     }
 }

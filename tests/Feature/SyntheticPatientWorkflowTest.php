@@ -125,24 +125,23 @@ it('processes fifteen registered synthetic patients and five repeat visits witho
         $visits = collect();
         foreach ($patients as $index => $patient) {
             $assignment = Livewire::actingAs($staff[$index % 2])->test(QueueManagement::class)
-                ->call('selectPatient', $patient->patient_id)->set('queueNumber', 101 + $index);
+                ->call('selectPatient', $patient->patient_id);
             if ($index === 1) {
-                $assignment->set('queueNumber', 101)->call('prepareAssignment')->assertHasErrors('queueNumber')
-                    ->assertSee('This queue number has already been assigned today. Choose another number.')
-                    ->assertSet('selectedPatientId', $patient->patient_id)->assertSet('queueNumber', 101)
-                    ->set('queueNumber', 102);
+                $assignment->call('selectPatient', $patients[0]->patient_id)->call('addPatient')->assertHasErrors('queue')
+                    ->assertSee('This patient already has an active queue entry today.')
+                    ->assertSet('selectedPatientId', $patients[0]->patient_id)->call('selectPatient', $patient->patient_id);
             }
-            $assignment->call('prepareAssignment')->assertHasNoErrors()->call('addPatient')->assertHasNoErrors()
-                ->call('addPatient')->assertHasErrors('queue');
+            $assignment->call('addPatient')->assertHasNoErrors()
+                ->call('addPatient')->assertHasErrors('selectedPatientId');
             $visit = $patient->queues()->sole();
-            expect($visit->queue_number)->toBe(101 + $index);
+            expect($visit->queue_number)->toBe(1 + $index);
             expect($visit->assigned_by)->toBe($staff[$index % 2]->user_id);
             $visits->push($visit);
         }
 
         $display = Livewire::actingAs($staff[0])->test(QueueDisplay::class)->assertSee('wire:poll.2s.keep-alive', false)
             ->assertDontSee('SYNTHETIC')->assertDontSee('Amihan');
-        expect($display->viewData('stages')['vital-signs']['waiting'])->toBe(range(101, 115));
+        expect($display->viewData('stages')['vital-signs']['waiting'])->toBe(range(1, 15));
         $manager = Livewire::actingAs($staff[0])->test(QueueManagement::class)->assertSee('wire:poll.10s', false)->set('status', 'Waiting');
         expect($manager->get('queues')->total())->toBe(15);
         $manager->call('nextPage');
@@ -161,10 +160,10 @@ it('processes fifteen registered synthetic patients and five repeat visits witho
                 $doctor = $doctors[($index + $round - 1) % 2];
                 if ($round === 2) {
                     Livewire::actingAs($assignedStaff)->test(QueueManagement::class)->call('selectPatient', $patient->patient_id)
-                        ->set('queueNumber', 501 + $index)->call('prepareAssignment')->call('addPatient')->assertHasNoErrors();
+                        ->call('addPatient')->assertHasNoErrors();
                 }
                 $visit = $patient->queues()->latest('queue_id')->firstOrFail();
-                $number = $round === 1 ? 101 + $index : 501 + $index;
+                $number = $round === 1 ? 1 + $index : 16 + $index;
                 $bloodPressure = (100 + $index + ($round - 1) * 10).'/'.(60 + $index);
                 [$height, $weight, $bmi] = $round === 1 ? array_slice($roster[$index], 3, 3) : [$roster[$index][3], $roster[$index][6], $roster[$index][7]];
 
@@ -285,7 +284,7 @@ it('processes fifteen registered synthetic patients and five repeat visits witho
         $directory->set('lastVisit', 'never');
         expect($directory->get('patients')->total())->toBe(0);
         Livewire::actingAs($staff[0])->test(QueueManagement::class)->set('status', 'Completed')->set('search', 'Amihan SYNTHETIC Santos')
-            ->assertSee('101')->assertSee('501');
+            ->assertSee('001')->assertSee('016');
         Livewire::actingAs($staff[0])->test(QueueDashboard::class)->call('$refresh')
             ->assertViewHas('statistics', fn (array $statistics): bool => $statistics['Total Patients Queued Today'] === 20
                 && $statistics['Completed Patients'] === 20 && $statistics['Waiting Patients'] === 0);

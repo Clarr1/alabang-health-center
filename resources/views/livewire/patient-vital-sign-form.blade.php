@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+<div wire:poll.60s class="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
     <div class="mb-8">
         <h1 class="text-2xl font-bold text-gray-900">Patient Information and Vital Signs</h1>
         <p class="mt-2 text-sm text-gray-600">Register a patient and record their vital signs in one form.</p>
@@ -61,12 +61,12 @@
 
                 <div>
                     <label for="birthdate" class="mb-1 block text-sm font-medium text-gray-700">Birthdate</label>
-                    <input id="birthdate" type="date" wire:model.defer="birthdate" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    <input id="birthdate" type="date" wire:model.live="birthdate" max="{{ now('Asia/Manila')->toDateString() }}" required class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
                 </div>
 
                 <div>
-                    <label for="age" class="mb-1 block text-sm font-medium text-gray-700">Age</label>
-                    <input id="age" type="number" min="0" max="150" wire:model.defer="age" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    <label for="age" class="mb-1 block text-sm font-medium text-gray-700">Age (calculated)</label>
+                    <output id="age" for="birthdate" aria-live="polite" class="block w-full rounded-md border border-gray-300 px-3 py-2">{{ $age === '' ? 'Enter birthdate first' : $age }}</output>
                 </div>
 
                 <div class="md:col-span-2">

@@ -128,7 +128,6 @@ class PatientInformationForm extends Component
                     'middle_name' => $this->middle_name,
                     'last_name' => $this->last_name,
                     'birthdate' => $this->birthdate,
-                    'age' => (int) $this->age,
                     'sex' => $this->sex,
                     'address' => $this->address,
                     'surveillance_residence' => $this->surveillance_residence,

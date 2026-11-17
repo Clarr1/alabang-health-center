@@ -18,7 +18,6 @@ it('saves patient information on one page and vital signs on the next page', fun
         ->set('middle_name', 'Marie')
         ->set('last_name', 'Dela Cruz')
         ->set('birthdate', '1995-02-14')
-        ->set('age', 31)
         ->set('sex', 'Female')
         ->set('address', 'Sample Street 101')
         ->set('contact_number', '09170001111')
@@ -59,7 +58,7 @@ it('saves patient information on one page and vital signs on the next page', fun
         ->call('savePatient')->assertHasNoErrors();
     expect(PatientInformation::count())->toBe(1);
     expect(Queue::count())->toBe(0);
-    $queue = app(QueueWorkflow::class)->addPatient($patient->patient_id, 19);
+    $queue = app(QueueWorkflow::class)->addPatient($patient->patient_id);
     app(QueueWorkflow::class)->transition($queue->queue_id, 'Waiting', 'Called');
     app(QueueWorkflow::class)->transition($queue->queue_id, 'Called', 'Vital Signs');
 
@@ -120,7 +119,7 @@ it('preserves patient details when registration validation fails', function () {
         ->set('sex', 'Female')
         ->set('contact_number', '09170001111')
         ->call('savePatient')
-        ->assertHasErrors(['last_name', 'birthdate', 'age', 'address'])
+        ->assertHasErrors(['last_name', 'birthdate', 'address'])
         ->assertNoRedirect()
         ->assertNotDispatched('patient-information-saved')
         ->assertSet('first_name', 'Anna')
@@ -145,7 +144,7 @@ it('calculates patient age from birthdate using the Manila day', function (strin
 
 it('validates and reviews registration details without creating a patient until submitted', function () {
     $form = Livewire::actingAs(User::factory()->create())->test(PatientInformationForm::class)
-        ->call('reviewDetails')->assertHasErrors(['first_name', 'last_name', 'birthdate', 'age', 'address'])
+        ->call('reviewDetails')->assertHasErrors(['first_name', 'last_name', 'birthdate', 'address'])
         ->assertSet('showReview', false)
         ->set('first_name', 'ReviewAnna')->set('last_name', 'ReviewSantos')->set('birthdate', '1995-02-14')
         ->set('address', 'Alabang, Muntinlupa City')->set('emergency_contact', 'Jose, spouse, 09170001111')
@@ -184,7 +183,7 @@ it('starts another registration only after explicitly leaving the generated ID s
         ->call('resetForm')->assertSet('registeredPatientId', null)
         ->assertSee('Patient Registration')->assertDontSee('Printable healthcare ID')
         ->assertSet('first_name', '')->assertSet('showReview', false)
-        ->call('savePatient')->assertHasErrors(['first_name', 'last_name', 'birthdate', 'age', 'address'])
+        ->call('savePatient')->assertHasErrors(['first_name', 'last_name', 'birthdate', 'address'])
         ->set('first_name', 'Second')->set('last_name', 'Patient')->set('birthdate', '2000-01-01')
         ->set('contact_number', '09171234567')->set('emergency_contact', 'Jose Santos, relative, 09171234568')
         ->set('address', 'Alabang')->call('savePatient')->assertHasNoErrors();

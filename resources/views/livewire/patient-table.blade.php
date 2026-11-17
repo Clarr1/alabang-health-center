@@ -1,4 +1,4 @@
-<div class="patient-page relative isolate {{ $showPatientModal || $showCardModal ? 'z-50' : '' }} mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8 lg:py-8">
+<div wire:poll.60s class="patient-page relative isolate {{ $showPatientModal || $showCardModal ? 'z-50' : '' }} mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8 lg:py-8">
     <img src="{{ asset('images/barangay-alabang.png') }}" alt="" aria-hidden="true" class="pointer-events-none absolute right-4 top-5 -z-10 w-[440px] rounded-full max-w-[70%] opacity-[0.035]">
     <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>

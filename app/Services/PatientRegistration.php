@@ -17,7 +17,7 @@ class PatientRegistration
     /** @return array<string, array<string, array<string, mixed>>> */
     public function sections(string $birthdate, bool $includeHistorical = false, ?string $category = null): array
     {
-        $category ??= app(PatientCategories::class)->suggest($birthdate);
+        $category = app(PatientCategories::class)->suggest($birthdate);
         $sections = [];
         foreach (PatientRegistrationSchema::sections() as $section => $fields) {
             if (PatientRegistrationSchema::sensitive($section) && Gate::denies('patient-sensitive')) {
@@ -181,7 +181,7 @@ class PatientRegistration
                     $patient->update(['patient_category' => $category, 'category_override_reason' => $reason]);
                 }
                 $this->saveHousehold($patient, $data, $householdVersion);
-            } elseif ($category !== ($patient->patient_category ?? app(PatientCategories::class)->suggest($patient->birthdate)) || ($data['categoryOverrideReason'] ?? '') !== ($patient->category_override_reason ?? '') || ($data['householdId'] ?? null) != $patient->household_id || ($data['householdMode'] === 'none' && $patient->household_id !== null) || $data['householdMode'] === 'new' || ($data['householdRelationship'] ?? null) != $patient->household_relationship) {
+            } elseif ($category !== $patient->current_category || filled($data['categoryOverrideReason'] ?? '') || ($data['householdId'] ?? null) != $patient->household_id || ($data['householdMode'] === 'none' && $patient->household_id !== null) || $data['householdMode'] === 'new' || ($data['householdRelationship'] ?? null) != $patient->household_relationship) {
                 abort(403);
             }
             $names = $data['selectedConditions'] ?? [];

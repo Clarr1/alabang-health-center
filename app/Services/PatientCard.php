@@ -12,9 +12,10 @@ class PatientCard
 
     public const HEIGHT_MM = 53.98;
 
-    /** @return array{patient: PatientInformation, fullName: string, birthdate: string, qrCode: string, logos: array<string, string>} */
+    /** @return array{patient: PatientInformation, familyNumber: ?string, fullName: string, birthdate: string, qrCode: string, logos: array<string, string>} */
     public function data(PatientInformation $patient): array
     {
+        $familyNumber = $patient->household()->value('family_number');
         $qrCode = (new Generator)->format('svg')->size(240)->margin(4)
             ->errorCorrection('M')->generate((string) $patient->patient_id);
 
@@ -26,6 +27,7 @@ class PatientCard
 
         return [
             'patient' => $patient,
+            'familyNumber' => filled($familyNumber) ? $familyNumber : null,
             'logos' => $logos,
             'fullName' => trim(implode(' ', array_filter([
                 $patient->first_name, $patient->middle_name, $patient->last_name,

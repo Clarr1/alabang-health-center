@@ -14,7 +14,26 @@ use Livewire\Component;
 class PatientProfileForm extends Component
 {
     use PatientHouseholdContext;
-    use RegistrationProfileFields;
+    use RegistrationProfileFields {
+        hydrate as protected hydrateProfileFields;
+    }
+
+    public function hydrate(): void
+    {
+        Gate::authorize('patient-profile-manage');
+        $patient = $this->contextPatient();
+        $this->birthdate = $patient->birthdate;
+        if ($this->patientCategory !== $patient->current_category) {
+            $this->patientCategory = $patient->current_category;
+            $this->categoryOverrideReason = '';
+            unset($this->profileSections, $this->suggestedCategory, $this->categoryMismatch);
+            $columns = array_keys(array_merge(...array_values($this->profileSections())));
+            $saved = $patient->registrationProfile()->select(['id', ...$columns])->first();
+            $this->profile = array_replace($saved?->only($columns) ?? [], $this->profile);
+            $this->showReview = ! $this->editing;
+        }
+        $this->hydrateProfileFields();
+    }
 
     #[Locked]
     public int $patientId;

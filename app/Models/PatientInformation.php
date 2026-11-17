@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\PatientCategories;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -41,6 +42,22 @@ class PatientInformation extends Model
     protected function casts(): array
     {
         return ['sms_consent' => 'boolean', 'residence_verified_at' => 'immutable_datetime'];
+    }
+
+    public function getAgeAttribute(mixed $value): ?int
+    {
+        return app(PatientCategories::class)->age($this->birthdate);
+    }
+
+    /** Ignore legacy age input; the birthdate is the source of the current age. */
+    public function setAgeAttribute(mixed $value): void
+    {
+        $this->attributes['age'] = null;
+    }
+
+    public function getCurrentCategoryAttribute(): ?string
+    {
+        return app(PatientCategories::class)->suggest($this->birthdate);
     }
 
     protected static function booted(): void

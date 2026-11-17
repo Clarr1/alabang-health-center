@@ -84,7 +84,7 @@ it('registers each category through its steps with shared household and patient 
         ->and($patient->household_id)->toBe($household->id)->and($patient->registrationProfile->{$field})->toBe($value)
         ->and($patient->registrationProfile->tuberculosis)->toBe('Unknown')->and($patient->immunizationDoses()->count())->toBe(1)
         ->and($patient->conditions()->sole()->status)->toBe('Reported');
-    $queue = app(QueueWorkflow::class)->addPatient($patient->patient_id, 1);
+    $queue = app(QueueWorkflow::class)->addPatient($patient->patient_id);
     expect($queue->patient_id)->toBe($patient->patient_id);
     $this->actingAs($staff)->get(route('medical-records.show', ['record' => $patient->patient_id]))
         ->assertOk()->assertSee($category)->assertSee($existingMember->first_name);
@@ -243,7 +243,7 @@ it('rejects birthdays older than the supported age limit', function (string $com
     $patient = $component === EditPatient::class ? PatientInformation::factory()->create() : null;
     Livewire::actingAs(User::factory()->create())->test($component, $patient === null ? [] : ['patient' => $patient])
         ->set('birthdate', '1875-11-15')->assertSet('age', 151)->assertSet('patientCategory', null)
-        ->call($patient === null ? 'savePatient' : 'saveChanges')->assertHasErrors('age');
+        ->call($patient === null ? 'savePatient' : 'saveChanges')->assertHasErrors('birthdate');
 })->with([PatientInformationForm::class, EditPatient::class]);
 
 it('calculates leap day birthdays and exact category transitions using the Manila date', function (string $today, string $birthdate, int $age, string $category) {
@@ -259,13 +259,11 @@ it('calculates leap day birthdays and exact category transitions using the Manil
     ['2026-11-14 16:00:00 UTC', '2006-11-15', 20, 'Adult'],
 ]);
 
-it('recalculates a forged age before saving patient information', function (string $component) {
+it('rejects attempts to manually set the calculated age', function (string $component) {
     $patient = $component === EditPatient::class ? PatientInformation::factory()->create() : null;
     $form = Livewire::actingAs(User::factory()->create())->test($component, $patient === null ? [] : ['patient' => $patient])
         ->set('contact_number', '09171234567')->set('emergency_contact', 'Jose Santos, relative, 09171234568')
         ->set('first_name', 'Automatic')->set('last_name', 'Age')->set('address', 'Alabang')
-        ->set('birthdate', '2017-11-15')->set('age', 36)
-        ->call($patient === null ? 'savePatient' : 'saveChanges')->assertHasNoErrors();
-    $saved = $patient?->fresh() ?? PatientInformation::findOrFail($form->get('registeredPatientId'));
-    expect($saved->age)->toBe(9)->and($saved->patient_category)->toBe('Child');
+        ->set('birthdate', '2017-11-15')->assertSet('age', 9);
+    expect(fn () => $form->set('age', 36))->toThrow(CannotUpdateLockedPropertyException::class);
 })->with([PatientInformationForm::class, EditPatient::class]);

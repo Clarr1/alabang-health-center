@@ -38,7 +38,7 @@
             <div class="max-h-72 space-y-2 overflow-y-auto">
                 @forelse ($this->consultationQueue as $entry)
                     <div wire:key="consultation-queue-{{ $entry->queue_id }}" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
-                        <div class="min-w-0"><p class="text-sm font-semibold">#{{ $entry->queue_number }} &middot; {{ $entry->patient->first_name }} {{ $entry->patient->middle_name }} {{ $entry->patient->last_name }}</p><span class="mt-1 inline-block rounded bg-brand-blue px-2 py-1 text-[11px]">{{ $entry->status }}</span></div>
+                        <div class="min-w-0"><p class="text-sm font-semibold">#{{ $entry->formattedQueueNumber() }} &middot; {{ $entry->patient->first_name }} {{ $entry->patient->middle_name }} {{ $entry->patient->last_name }}</p><span class="mt-1 inline-block rounded bg-brand-blue px-2 py-1 text-[11px]">{{ $entry->status }}</span></div>
                         <button type="button" wire:click="startConsultation({{ $entry->queue_id }})" wire:loading.attr="disabled" @disabled($queueId !== null) class="patient-button bg-brand-pink text-xs disabled:cursor-not-allowed">Start Consultation</button>
                     </div>
                 @empty
@@ -46,7 +46,7 @@
                 @endforelse
                 @foreach ($this->activeConsultations as $entry)
                     <div wire:key="active-consultation-{{ $entry->queue_id }}" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-blush p-3">
-                        <div class="min-w-0"><p class="text-sm font-semibold">Queue #{{ $entry->queue_number }} &middot; {{ $entry->patient->first_name }} {{ $entry->patient->last_name }}</p><span class="mt-1 inline-block rounded bg-brand-pink px-2 py-1 text-[11px]">In Consultation</span></div>
+                        <div class="min-w-0"><p class="text-sm font-semibold">Queue #{{ $entry->formattedQueueNumber() }} &middot; {{ $entry->patient->first_name }} {{ $entry->patient->last_name }}</p><span class="mt-1 inline-block rounded bg-brand-pink px-2 py-1 text-[11px]">In Consultation</span></div>
                         @if ($queueId !== $entry->queue_id)
                             <button type="button" wire:click="resumeConsultation({{ $entry->queue_id }})" wire:loading.attr="disabled" @disabled($queueId !== null) class="patient-button bg-white text-xs disabled:cursor-not-allowed">Resume Consultation</button>
                         @else
@@ -65,12 +65,12 @@
                 <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-blue text-sm font-semibold" aria-hidden="true">{{ mb_strtoupper(mb_substr($patient->first_name, 0, 1).mb_substr($patient->last_name, 0, 1)) }}</span>
                 <div class="min-w-0">
                     <h2 class="text-sm font-semibold">{{ trim(implode(' ', array_filter([$patient->first_name, $patient->middle_name, $patient->last_name]))) }}</h2>
-                    <p class="mt-1 text-xs leading-relaxed text-muted">Patient #{{ $patient->patient_id }} &middot; Family Number {{ $patient->household?->family_number ?: 'Not recorded' }} &middot; {{ $patient->sex }} &middot; {{ (int) \Illuminate\Support\Carbon::parse($patient->birthdate)->diffInYears($currentQueue->queue_date) }} years at visit &middot; {{ \Illuminate\Support\Carbon::parse($patient->birthdate)->format('d M Y') }}</p>
+                    <p class="mt-1 text-xs leading-relaxed text-muted">Patient #{{ $patient->patient_id }} &middot; Family Number {{ $patient->household?->family_number ?: 'Not recorded' }} &middot; {{ $patient->sex }} &middot; {{ $patient->age ?? 'Not recorded' }} years &middot; {{ \Illuminate\Support\Carbon::parse($patient->birthdate)->format('d M Y') }}</p>
                     <p class="mt-1 text-[11px] leading-relaxed text-muted">{{ $patient->address }} &middot; {{ $patient->contact_number ?: 'No contact number' }}</p>
                 </div>
             </div>
             @if ($currentQueue)
-                <div class="text-xs sm:text-right"><p class="font-semibold">Queue {{ $currentQueue->queue_number }}</p><p class="mt-1 text-muted">{{ $currentQueue->queue_date->format('d M Y') }} &middot; {{ $currentQueue->created_at->timezone('Asia/Manila')->format('h:i A') }}</p></div>
+                <div class="text-xs sm:text-right"><p class="font-semibold">Queue {{ $currentQueue->formattedQueueNumber() }}</p><p class="mt-1 text-muted">{{ $currentQueue->queue_date->format('d M Y') }} &middot; {{ $currentQueue->created_at->timezone('Asia/Manila')->format('h:i A') }}</p></div>
             @endif
         </section>
 

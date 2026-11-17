@@ -15,6 +15,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -26,12 +27,14 @@ beforeEach(function () {
 it('rejects invalid patient chronology and forged calculated ages without losing input', function (string $field, mixed $value, string $error) {
     $form = Livewire::test(PatientInformationForm::class)
         ->set('first_name', 'Synthetic')->set('last_name', 'Patient')
-        ->set('birthdate', '2000-01-01')->set('address', 'Synthetic address')
-        ->set($field, $value);
-    if ($field === 'birthdate') {
-        $form->set('age', 26);
+        ->set('birthdate', '2000-01-01')->set('address', 'Synthetic address');
+    if ($field === 'age') {
+        expect(fn () => $form->set($field, $value))->toThrow(CannotUpdateLockedPropertyException::class);
+        expect(PatientInformation::count())->toBe(0);
+
+        return;
     }
-    $form->call('savePatient')->assertHasErrors($error)
+    $form->set($field, $value)->call('savePatient')->assertHasErrors($error)
         ->assertSet('first_name', 'Synthetic')->assertSet($field, $value)
         ->assertNotDispatched('patient-information-saved');
     expect(PatientInformation::count())->toBe(0);
@@ -45,7 +48,7 @@ it('rejects invalid patient chronology and forged calculated ages without losing
 it('applies patient chronology validation to edits as well as registration', function () {
     $patient = PatientInformation::factory()->create();
     Livewire::test(EditPatient::class, ['patient' => $patient])
-        ->set('birthdate', '2026-11-09')->set('age', 36)
+        ->set('birthdate', '2026-11-09')
         ->call('saveChanges')->assertHasErrors('birthdate')->assertNotDispatched('patient-updated');
     expect($patient->fresh()->birthdate)->toBe('1990-01-01');
 });
@@ -65,7 +68,7 @@ it('denies inactive staff and doctors at the workflow authorization boundary', f
         expect(fn () => $workflow->resumeConsultation(999999))->toThrow(AuthorizationException::class);
     } else {
         $patient = PatientInformation::factory()->create();
-        expect(fn () => $workflow->addPatient($patient->patient_id, 1))->toThrow(AuthorizationException::class);
+        expect(fn () => $workflow->addPatient($patient->patient_id))->toThrow(AuthorizationException::class);
     }
     expect(Queue::count())->toBe(0);
 })->with([['Local Health Unit Staff', 'queue-register'], ['Doctor', 'queue-consult']]);

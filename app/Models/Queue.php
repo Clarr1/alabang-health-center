@@ -32,6 +32,11 @@ class Queue extends Model
         $this->attributes['queue_date'] = Carbon::parse($value)->toDateString();
     }
 
+    public function formattedQueueNumber(): string
+    {
+        return str_pad((string) $this->queue_number, 3, '0', STR_PAD_LEFT);
+    }
+
     public function assignedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_by', 'user_id');

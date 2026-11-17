@@ -13,65 +13,87 @@ beforeEach(function () {
     $this->workflow = app(QueueWorkflow::class);
 });
 
-it('uses staff assigned numbers and permits reuse on a different Manila date', function () {
-    $this->travelTo(new DateTimeImmutable('2026-10-09 16:05:00 UTC'));
-    DB::table('queue_days')->insert(['queue_date' => '2026-10-10', 'last_number' => 500]);
-    $first = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id, 27);
-    $second = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id, 8);
+it('automatically assigns consecutive numbers and resets at Manila midnight without changing history', function () {
+    $this->travelTo(new DateTimeImmutable('2026-10-10 15:59:59 UTC'));
+    $first = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id);
+    $second = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id);
     expect($first->queue_date->toDateString())->toBe('2026-10-10')
-        ->and($first->queue_number)->toBe(27)->and($second->queue_number)->toBe(8)
+        ->and($first->queue_number)->toBe(1)->and($second->queue_number)->toBe(2)
         ->and($first->assigned_by)->toBe(auth()->id())
         ->and($first->assignedBy->user_id)->toBe(auth()->id())
-        ->and(DB::table('queue_days')->value('last_number'))->toBe(500);
-    $this->travelTo(new DateTimeImmutable('2026-10-10 16:05:00 UTC'));
-    $next = $this->workflow->addPatient($first->patient_id, 27);
-    expect($next->queue_number)->toBe(27)->and(Queue::count())->toBe(3);
+        ->and(DB::table('queue_days')->value('last_number'))->toBe(2);
+    $this->travelTo(new DateTimeImmutable('2026-10-10 16:00:00 UTC'));
+    $next = $this->workflow->addPatient($first->patient_id);
+    expect($next->queue_number)->toBe(1)->and($next->queue_date->toDateString())->toBe('2026-10-11')
+        ->and($next->queue_id)->not->toBe($first->queue_id)->and(Queue::count())->toBe(3)
+        ->and($first->fresh()->queue_number)->toBe(1)->and($first->fresh()->queue_date->toDateString())->toBe('2026-10-10')
+        ->and(DB::table('queue_days')->where('queue_date', '2026-10-10')->value('last_number'))->toBe(2);
 });
 
 it('rejects duplicate active visits and preserves cancelled history', function () {
     $patient = PatientInformation::factory()->create();
-    $queue = $this->workflow->addPatient($patient->patient_id, 27);
-    expect(fn () => $this->workflow->addPatient($patient->patient_id, 99))->toThrow(ValidationException::class);
+    $queue = $this->workflow->addPatient($patient->patient_id);
+    expect(fn () => $this->workflow->addPatient($patient->patient_id))->toThrow(ValidationException::class);
     $this->workflow->transition($queue->queue_id, 'Waiting', 'Cancelled');
-    expect(fn () => $this->workflow->addPatient($patient->patient_id, 27))->toThrow(ValidationException::class);
-    $next = $this->workflow->addPatient($patient->patient_id, 99);
-    expect($next->queue_number)->toBe(99)->and($patient->queues()->count())->toBe(2);
+    $next = $this->workflow->addPatient($patient->patient_id);
+    expect($next->queue_number)->toBe(2)->and($patient->queues()->count())->toBe(2)
+        ->and($queue->fresh()->status)->toBe('Cancelled');
 });
 
-it('rejects numbers already assigned today including closed visits', function (string $status) {
-    $queue = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id, 42);
+it('never reuses numbers already assigned today including closed visits', function (string $status) {
+    $queue = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id);
     $queue->update(['status' => $status]);
-    try {
-        $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id, 42);
-        $this->fail('A used number should not be assigned again.');
-    } catch (ValidationException $exception) {
-        expect($exception->errors())->toHaveKey('queueNumber')
-            ->and($exception->errors()['queueNumber'][0])->toContain('already been assigned today');
-    }
-    expect(Queue::count())->toBe(1)->and($queue->fresh()->queue_number)->toBe(42);
+    $next = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id);
+    expect(Queue::count())->toBe(2)->and($queue->fresh()->queue_number)->toBe(1)->and($next->queue_number)->toBe(2);
 })->with(['Waiting', 'Completed', 'Cancelled', 'No Show']);
 
-it('accepts only a supplied positive whole queue number', function (mixed $number) {
-    $patient = PatientInformation::factory()->create();
-    expect(fn () => $this->workflow->addPatient($patient->patient_id, $number))->toThrow(ValidationException::class);
+it('does not allocate numbers for invalid patients', function (int $patientId) {
+    expect(fn () => $this->workflow->addPatient($patientId))->toThrow(ValidationException::class);
     expect(Queue::count())->toBe(0)->and(DB::table('queue_days')->count())->toBe(0);
 })->with([
-    'missing' => [null], 'blank' => [''], 'zero' => [0], 'negative' => [-1],
-    'decimal' => [1.5], 'decimal text' => ['1.0'], 'scientific notation' => ['1e2'],
-    'nonnumeric' => ['abc'], 'boolean' => [true], 'array' => [[42]],
-    'outside column range' => ['4294967296'],
+    'zero' => [0], 'negative' => [-1], 'missing patient' => [999999],
 ]);
 
 it('enforces active patient uniqueness in the database even outside the workflow service', function () {
-    $queue = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id, 27);
+    $queue = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id);
     expect(fn () => Queue::create([
         'patient_id' => $queue->patient_id, 'queue_date' => $queue->queue_date,
         'queue_number' => 2, 'status' => 'Waiting',
     ]))->toThrow(QueryException::class);
 });
 
+it('continues above both historical numbers and the daily counter', function (int $lastNumber, int $existingNumber, int $expectedNumber) {
+    $date = now('Asia/Manila')->toDateString();
+    DB::table('queue_days')->insert(['queue_date' => $date, 'last_number' => $lastNumber]);
+    $historical = Queue::factory()->create(['queue_number' => $existingNumber, 'status' => 'Completed']);
+    $queue = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id);
+    expect($queue->queue_number)->toBe($expectedNumber)->and($historical->fresh()->queue_number)->toBe($existingNumber)
+        ->and(DB::table('queue_days')->where('queue_date', $date)->value('last_number'))->toBe($expectedNumber);
+})->with([[0, 42, 43], [500, 42, 501]]);
+
+it('rolls back the sequence when creating a visit fails', function () {
+    $patient = PatientInformation::factory()->create();
+    Queue::creating(function (): void {
+        throw new QueryException('sqlite', 'insert', [], new RuntimeException('Simulated queue failure'));
+    });
+    try {
+        expect(fn () => $this->workflow->addPatient($patient->patient_id))->toThrow(QueryException::class);
+        expect(Queue::count())->toBe(0)->and(DB::table('queue_days')->count())->toBe(0);
+    } finally {
+        Queue::flushEventListeners();
+    }
+    expect($this->workflow->addPatient($patient->patient_id)->queue_number)->toBe(1);
+});
+
+it('rejects sequence exhaustion without changing existing records', function () {
+    $date = now('Asia/Manila')->toDateString();
+    DB::table('queue_days')->insert(['queue_date' => $date, 'last_number' => 4294967295]);
+    expect(fn () => $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id))->toThrow(ValidationException::class);
+    expect(Queue::count())->toBe(0)->and(DB::table('queue_days')->value('last_number'))->toBe(4294967295);
+});
+
 it('enforces daily queue number uniqueness in the database', function () {
-    $queue = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id, 27);
+    $queue = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id);
     expect(fn () => Queue::create([
         'patient_id' => PatientInformation::factory()->create()->patient_id,
         'queue_date' => $queue->queue_date, 'queue_number' => $queue->queue_number, 'status' => 'Waiting',
@@ -79,13 +101,13 @@ it('enforces daily queue number uniqueness in the database', function () {
 });
 
 it('rejects invalid transitions and repeated actions without changing the assigned number', function () {
-    $queue = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id, 27);
+    $queue = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id);
     expect(fn () => $this->workflow->transition($queue->queue_id, 'Waiting', 'Completed'))->toThrow(ValidationException::class);
     $this->workflow->transition($queue->queue_id, 'Waiting', 'Called');
-    expect($queue->fresh()->called_at)->not->toBeNull()->and($queue->fresh()->queue_number)->toBe(27);
+    expect($queue->fresh()->called_at)->not->toBeNull()->and($queue->fresh()->queue_number)->toBe(1);
     expect(fn () => $this->workflow->transition($queue->queue_id, 'Waiting', 'Called'))->toThrow(ValidationException::class);
     $this->workflow->transition($queue->queue_id, 'Called', 'No Show');
-    expect($queue->fresh()->status)->toBe('No Show')->and($queue->fresh()->queue_number)->toBe(27);
+    expect($queue->fresh()->status)->toBe('No Show')->and($queue->fresh()->queue_number)->toBe(1);
     expect(fn () => $this->workflow->transition($queue->queue_id, 'No Show', 'Waiting'))->toThrow(ValidationException::class);
 });
 
@@ -97,12 +119,12 @@ it('requires saved visit records before advancing the queue', function () {
 });
 
 it('restricts patient deletion to preserve queue history', function () {
-    $queue = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id, 27);
+    $queue = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id);
     expect(fn () => $queue->patient->delete())->toThrow(QueryException::class);
 });
 
 it('preserves queue history if the assigning account is removed', function () {
-    $queue = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id, 27);
+    $queue = $this->workflow->addPatient(PatientInformation::factory()->create()->patient_id);
     auth()->user()->delete();
-    expect($queue->fresh()->assigned_by)->toBeNull()->and($queue->fresh()->queue_number)->toBe(27);
+    expect($queue->fresh()->assigned_by)->toBeNull()->and($queue->fresh()->queue_number)->toBe(1);
 });

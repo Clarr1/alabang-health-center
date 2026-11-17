@@ -16,7 +16,6 @@ it('stores patient information and vital signs from the livewire form', function
         ->set('middle_name', 'Del')
         ->set('last_name', 'Santos')
         ->set('birthdate', '1998-05-10')
-        ->set('age', 28)
         ->set('sex', 'Female')
         ->set('address', 'Sample Address 123')
         ->set('contact_number', '09171234567')

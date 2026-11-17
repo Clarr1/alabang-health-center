@@ -7,6 +7,7 @@ use App\Models\PatientInformation;
 use App\Models\Queue;
 use App\Models\User;
 use App\Models\VitalSign;
+use App\Services\PatientCategories;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
@@ -56,7 +57,7 @@ it('updates only the selected patient and displays the saved details in the pati
     $recordAttributes = $record->fresh()->getAttributes();
     $details = [
         'first_name' => 'Updated Maria', 'middle_name' => 'Reyes', 'last_name' => 'Santos',
-        'birthdate' => '1998-05-10', 'age' => 28, 'sex' => 'Female',
+        'birthdate' => '1998-05-10', 'sex' => 'Female',
         'address' => 'Updated Alabang Address', 'contact_number' => '09170001111',
         'emergency_contact' => 'Jose Santos', 'registration_date' => '2026-09-23', 'status' => $status,
     ];
@@ -70,6 +71,7 @@ it('updates only the selected patient and displays the saved details in the pati
         ->assertSee("window.alert('Patient updated successfully.'); Livewire.navigate", false);
 
     $this->assertDatabaseHas('patient_information', ['patient_id' => $patient->patient_id, ...$details]);
+    expect($patient->fresh()->age)->toBe(app(PatientCategories::class)->age($details['birthdate']));
     expect(PatientInformation::count())->toBe(2)
         ->and($otherPatient->fresh()->getAttributes())->toEqual($otherAttributes)
         ->and($patient->queues()->sole()->getAttributes())->toEqual($queueAttributes)

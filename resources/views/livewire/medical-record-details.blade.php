@@ -17,7 +17,7 @@
     ];
 @endphp
 
-<div x-data="{
+<div wire:poll.60s x-data="{
         activeTab: 'visits',
         selectTab(tab) { this.activeTab = tab; this.$nextTick(() => this.$refs[tab + 'Tab'].focus()) },
         moveTab(offset) { const tabs = ['visits', 'vitals', 'followups']; this.selectTab(tabs[(tabs.indexOf(this.activeTab) + offset + tabs.length) % tabs.length]) }
@@ -56,7 +56,7 @@
             <div class="min-w-0"><h2 class="text-sm font-semibold">{{ trim(implode(' ', array_filter([$patient->first_name, $patient->middle_name, $patient->last_name]))) }}</h2><p class="mt-1 text-xs leading-relaxed text-muted">Patient #{{ $patient->patient_id }} &middot; {{ $patient->sex }} &middot; {{ $patient->age }} years &middot; <time datetime="{{ $patient->birthdate }}">{{ \Illuminate\Support\Carbon::parse($patient->birthdate)->format('d M Y') }}</time></p></div>
         </div>
         @if ($latestQueue)
-            <div class="text-xs sm:text-right"><p class="font-semibold">Latest queue {{ $latestQueue->queue_number }}</p><p class="mt-1 text-muted">{{ $latestQueue->queue_date->format('d M Y') }} &middot; {{ $latestQueue->created_at->timezone('Asia/Manila')->format('h:i A') }}</p></div>
+            <div class="text-xs sm:text-right"><p class="font-semibold">Latest queue {{ $latestQueue->formattedQueueNumber() }}</p><p class="mt-1 text-muted">{{ $latestQueue->queue_date->format('d M Y') }} &middot; {{ $latestQueue->created_at->timezone('Asia/Manila')->format('h:i A') }}</p></div>
         @endif
     </section>
 

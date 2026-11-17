@@ -1,4 +1,4 @@
-<div class="relative mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8">
+<div wire:poll.60s class="relative mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8">
     <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
             <nav aria-label="Breadcrumb" class="mb-2 text-xs text-muted"><a href="{{ route('patients.index') }}" wire:navigate>Patient Record</a> / <a href="{{ $backUrl }}" wire:navigate>Family Records</a> / <span aria-current="page">{{ $household->label }}</span>@if ($selectedMember) / {{ $selectedMember->first_name }} {{ $selectedMember->last_name }}@endif</nav>
@@ -45,10 +45,10 @@
                             </th>
                             <td class="px-3 py-4">{{ $member->household_relationship ?: 'Relationship not recorded' }}</td>
                             <td class="whitespace-nowrap px-3 py-4">
-                                <span class="block">{{ app(\App\Services\PatientCategories::class)->age($member->birthdate) ?? 'Not recorded' }}</span>
+                                <span class="block">{{ $member->age ?? 'Not recorded' }}</span>
                                 <span class="mt-1 block text-[11px] text-muted">{{ $member->birthdate }}</span>
                             </td>
-                            <td class="px-3 py-4">{{ $member->patient_category ?? app(\App\Services\PatientCategories::class)->suggest($member->birthdate) ?? 'Not recorded' }}</td>
+                            <td class="px-3 py-4">{{ $member->current_category ?? 'Not recorded' }}</td>
                             <td class="px-3 py-3">
                                 <div class="flex items-center gap-2 whitespace-nowrap">
                                     <button type="button" wire:click="selectMember({{ $member->patient_id }})" wire:loading.attr="disabled" aria-label="View medical summary" aria-pressed="{{ $selectedMemberId === $member->patient_id ? 'true' : 'false' }}" class="patient-button bg-brand-blue px-3 py-2 text-xs">Summary</button>

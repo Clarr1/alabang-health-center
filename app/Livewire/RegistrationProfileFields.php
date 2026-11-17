@@ -169,7 +169,7 @@ trait RegistrationProfileFields
         Gate::authorize('patient-profile-manage');
         $this->originalPatientCategory = $patient->patient_category;
         $this->patientCategory = $this->categoryForPatient($patient);
-        $this->categoryOverrideReason = $patient->category_override_reason ?? '';
+        $this->categoryOverrideReason = '';
         unset($this->profileSections);
         $this->profile = [];
         if (Gate::allows('patient-sensitive') && $patient->registrationProfile()->value('reproductive_applicable') === 'Yes') {
@@ -205,7 +205,7 @@ trait RegistrationProfileFields
 
     protected function categoryForPatient(PatientInformation $patient): ?string
     {
-        return $patient->patient_category ?? app(PatientCategories::class)->suggest($patient->birthdate);
+        return $patient->current_category;
     }
 
     protected function validateRegistrationProfile(bool $includeDoses = true): void

@@ -12,26 +12,15 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class QueueWorkflow
 {
     /** @return array<string, array<int, mixed>> */
-    public function assignmentRules(string $date): array
+    public function assignmentRules(): array
     {
         return [
             'selectedPatientId' => ['required', 'integer', 'exists:patient_information,patient_id'],
-            'queueNumber' => [
-                'bail', 'required',
-                function (string $attribute, mixed $value, Closure $fail): void {
-                    if (! is_int($value) && (! is_string($value) || preg_match('/^[0-9]+$/', $value) !== 1)) {
-                        $fail('The assigned queue number must be a positive whole number.');
-                    }
-                },
-                'integer', 'min:1', 'max:4294967295',
-                Rule::unique('queues', 'queue_number')->where('queue_date', $date),
-            ],
         ];
     }
 
@@ -39,31 +28,23 @@ class QueueWorkflow
     public function assignmentMessages(): array
     {
         return [
-            'selectedPatientId.required' => 'Select a patient before assigning a queue number.',
-            'queueNumber.required' => 'Enter the queue number you are assigning.',
-            'queueNumber.integer' => 'The assigned queue number must be a positive whole number.',
-            'queueNumber.min' => 'The assigned queue number must be a positive whole number.',
-            'queueNumber.unique' => 'This queue number has already been assigned today. Choose another number.',
+            'selectedPatientId.required' => 'Select a patient before adding them to the queue.',
         ];
     }
 
-    public function addPatient(int $patientId, mixed $queueNumber, ?string $expectedDate = null): Queue
+    public function addPatient(int $patientId): Queue
     {
         Gate::authorize('queue-register');
         $date = now('Asia/Manila')->toDateString();
 
-        if ($expectedDate !== null && $expectedDate !== $date) {
-            throw ValidationException::withMessages(['queueNumber' => 'The queue date has changed. Review today’s assigned numbers and confirm again.']);
-        }
-
         try {
-            return DB::transaction(function () use ($patientId, $queueNumber, $date): Queue {
+            return DB::transaction(function () use ($patientId, $date): Queue {
                 DB::table('queue_days')->upsert([['queue_date' => $date, 'last_number' => 0]], ['queue_date'], ['queue_date']);
-                DB::table('queue_days')->where('queue_date', $date)->lockForUpdate()->first();
+                $queueDay = DB::table('queue_days')->where('queue_date', $date)->lockForUpdate()->first();
 
-                $validated = Validator::make(
-                    ['selectedPatientId' => $patientId, 'queueNumber' => $queueNumber],
-                    $this->assignmentRules($date),
+                Validator::make(
+                    ['selectedPatientId' => $patientId],
+                    $this->assignmentRules(),
                     $this->assignmentMessages(),
                 )->validate();
 
@@ -73,19 +54,21 @@ class QueueWorkflow
                     throw ValidationException::withMessages(['queue' => 'This patient already has an active queue entry today.']);
                 }
 
+                $queueNumber = max((int) $queueDay->last_number, (int) Queue::where('queue_date', $date)->max('queue_number')) + 1;
+                if ($queueNumber > 4294967295) {
+                    throw ValidationException::withMessages(['queue' => 'The daily queue number limit has been reached.']);
+                }
+                DB::table('queue_days')->where('queue_date', $date)->update(['last_number' => $queueNumber]);
+
                 return Queue::create([
                     'patient_id' => $patientId,
                     'queue_date' => $date,
-                    'queue_number' => (int) $validated['queueNumber'],
+                    'queue_number' => $queueNumber,
                     'assigned_by' => Auth::id(),
                     'status' => 'Waiting',
                 ]);
             }, 5);
         } catch (UniqueConstraintViolationException $exception) {
-            if (Queue::whereDate('queue_date', $date)->where('queue_number', $queueNumber)->exists()) {
-                throw ValidationException::withMessages(['queueNumber' => $this->assignmentMessages()['queueNumber.unique']]);
-            }
-
             if (Queue::whereDate('queue_date', $date)->where('patient_id', $patientId)->whereNotIn('status', Queue::TERMINAL_STATUSES)->exists()) {
                 throw ValidationException::withMessages(['queue' => 'This patient already has an active queue entry today.']);
             }

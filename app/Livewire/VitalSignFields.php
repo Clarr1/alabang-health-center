@@ -2,7 +2,7 @@
 
 namespace App\Livewire;
 
-use Illuminate\Support\Carbon;
+use App\Services\PatientCategories;
 use Illuminate\Validation\Rule;
 
 trait VitalSignFields
@@ -113,7 +113,7 @@ trait VitalSignFields
     {
         $birthdate = $this instanceof PatientVitalSignForm ? $this->birthdate : $this->patient?->birthdate;
 
-        return is_string($birthdate) && Carbon::canBeCreatedFromFormat($birthdate, 'Y-m-d') && Carbon::parse($birthdate)->age >= 20;
+        return (app(PatientCategories::class)->age($birthdate) ?? -1) >= 20;
     }
 
     /** @return array<int, string> */

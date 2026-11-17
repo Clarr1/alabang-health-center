@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 
 trait PatientFormFields
 {
@@ -26,11 +27,6 @@ trait PatientFormFields
     public function updatedPatientCategory(): void
     {
         $this->synchronizePatientCategory();
-    }
-
-    protected function categoryForPatient(PatientInformation $patient): ?string
-    {
-        return app(PatientCategories::class)->suggest($patient->birthdate);
     }
 
     /** @return array<string, array<string, array<string, mixed>>> */
@@ -67,6 +63,7 @@ trait PatientFormFields
 
     public $birthdate = '';
 
+    #[Locked]
     public $age = '';
 
     public $sex = 'Male';
@@ -145,6 +142,7 @@ trait PatientFormFields
         foreach (array_keys($this->rules()) as $field) {
             $summary[$field] = $this->{$field};
         }
+        $summary['age'] = $this->age;
 
         return $summary;
     }
@@ -156,13 +154,7 @@ trait PatientFormFields
 
     protected function parsedPatientBirthdate(): ?DateTimeImmutable
     {
-        if (! is_string($this->birthdate) || preg_match('/^\d{4}-\d{2}-\d{2}$/D', $this->birthdate) !== 1) {
-            return null;
-        }
-
-        $birthdate = DateTimeImmutable::createFromFormat('!Y-m-d', $this->birthdate, now('Asia/Manila')->getTimezone());
-
-        return $birthdate !== false && $birthdate->format('Y-m-d') === $this->birthdate ? $birthdate : null;
+        return app(PatientCategories::class)->birthdate($this->birthdate);
     }
 
     public function rules(): array
@@ -171,13 +163,9 @@ trait PatientFormFields
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'birthdate' => ['bail', 'required', 'date_format:Y-m-d', 'before_or_equal:'.now('Asia/Manila')->toDateString()],
-            'age' => ['required', 'integer', 'min:0', 'max:150', function (string $attribute, mixed $value, Closure $fail): void {
-                $today = now('Asia/Manila')->startOfDay();
-                $birthdate = $this->parsedPatientBirthdate();
-                if ($birthdate !== null && $birthdate <= $today
-                    && (int) $value !== $birthdate->diff($today)->y) {
-                    $fail('The age must match the patient birthdate.');
+            'birthdate' => ['bail', 'required', 'date_format:Y-m-d', 'before_or_equal:'.now('Asia/Manila')->toDateString(), function (string $attribute, mixed $value, Closure $fail): void {
+                if (app(PatientCategories::class)->age($value) > 150) {
+                    $fail('The birthdate must be within the supported age range of 0 to 150 years.');
                 }
             }],
             'sex' => ['required', 'in:Male,Female'],

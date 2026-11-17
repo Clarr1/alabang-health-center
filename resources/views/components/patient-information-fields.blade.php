@@ -34,7 +34,7 @@
                     @if ($type === 'select')
                         <select id="patient-{{ $field }}" wire:model="{{ $field }}" required aria-describedby="patient-{{ $field }}-error" aria-invalid="{{ $errors->has($field) ? 'true' : 'false' }}" class="patient-input w-full"><option value="Male">Male</option><option value="Female">Female</option></select>
                     @elseif ($field === 'age')
-                        <input id="patient-age" type="number" wire:model="age" min="0" max="150" readonly placeholder="Enter birthdate first" aria-describedby="patient-age-error" aria-invalid="{{ $errors->has('age') ? 'true' : 'false' }}" class="patient-input w-full bg-[#e9ebf0]">
+                        <output id="patient-age" for="patient-birthdate" aria-live="polite" class="patient-input block w-full bg-[#e9ebf0]">{{ $this->age === '' ? 'Enter birthdate first' : $this->age }}</output>
                     @else
                         <input id="patient-{{ $field }}" type="{{ $type }}"
                                @if (in_array($field, ['first_name', 'last_name'], true)) wire:model.live.debounce.400ms="{{ $field }}"

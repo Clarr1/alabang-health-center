@@ -1,4 +1,4 @@
-<section class="relative mt-6 space-y-5" aria-labelledby="registration-profile-title">
+<section wire:poll.60s class="relative mt-6 space-y-5" aria-labelledby="registration-profile-title">
     <header class="patient-card flex flex-wrap items-center justify-between gap-3">
         <div><h2 id="registration-profile-title" class="text-lg font-semibold">Patient registration profile</h2><p class="mt-1 text-xs text-muted">Personal history, household, and immunization records</p></div>
         <div class="flex gap-2"><button type="button" wire:click="viewHistory" class="patient-button text-xs">{{ $showHistory ? 'Hide' : 'View' }} profile history</button>@if (! $editing)<button type="button" wire:click="editProfile" class="patient-button bg-brand-blue text-xs">Edit registration profile</button>@endif</div>
@@ -17,7 +17,7 @@
     @if ($editing)</form>@else</div>@endif
     <details wire:ignore.self class="patient-card" open>
         <summary class="cursor-pointer text-sm font-semibold">Immunization history</summary>
-        <p class="mt-3 text-xs text-muted">{{ $patient->first_name }} {{ $patient->last_name }} · Born {{ $patient->birthdate }} · Age {{ (int) now('Asia/Manila')->diffInYears($patient->birthdate, true) }}. Entries are retained when a later dose or correction is added.</p>
+        <p class="mt-3 text-xs text-muted">{{ $patient->first_name }} {{ $patient->last_name }} · Born {{ $patient->birthdate }} · Age {{ $patient->age ?? 'Not recorded' }}. Entries are retained when a later dose or correction is added.</p>
         <div class="mt-4 overflow-x-auto" tabindex="0" role="region" aria-label="Immunization chart">
             <table class="w-full min-w-[850px] text-left text-xs"><thead><tr><th class="p-2">Vaccine / supplement</th>@foreach (\App\Services\PatientRegistrationSchema::SCHEDULES as $schedule)<th class="p-2">{{ $schedule }}</th>@endforeach<th class="p-2">Remarks</th></tr></thead>
                 <tbody>@foreach (array_unique([...\App\Services\PatientRegistrationSchema::VACCINES, ...$patient->immunizationDoses->pluck('vaccine_name')->all()]) as $vaccine)

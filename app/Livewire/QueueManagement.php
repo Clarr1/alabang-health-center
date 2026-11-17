@@ -32,19 +32,8 @@ class QueueManagement extends Component
 
     public string $queueDate = '';
 
-    public $queueNumber = '';
-
     #[Locked]
     public ?int $selectedPatientId = null;
-
-    #[Locked]
-    public ?int $pendingPatientId = null;
-
-    #[Locked]
-    public ?int $pendingQueueNumber = null;
-
-    #[Locked]
-    public string $assignmentDate = '';
 
     public function mount(): void
     {
@@ -72,33 +61,9 @@ class QueueManagement extends Component
         Gate::authorize('queue-register');
         PatientInformation::findOrFail($patientId);
         $this->selectedPatientId = $patientId;
-        $this->reset('patientSearch', 'queueNumber', 'pendingPatientId', 'pendingQueueNumber', 'assignmentDate');
+        $this->reset('patientSearch');
         $this->resetErrorBag();
-        unset($this->selectedPatient, $this->patientResults, $this->pendingPatient);
-    }
-
-    public function prepareAssignment(): void
-    {
-        Gate::authorize('queue-register');
-        $workflow = app(QueueWorkflow::class);
-        $date = now('Asia/Manila')->toDateString();
-        $this->reset('pendingPatientId', 'pendingQueueNumber', 'assignmentDate');
-        $this->resetErrorBag();
-        $validated = $this->validate($workflow->assignmentRules($date), $workflow->assignmentMessages());
-
-        if (Queue::whereDate('queue_date', $date)->where('patient_id', $this->selectedPatientId)->whereNotIn('status', Queue::TERMINAL_STATUSES)->exists()) {
-            $this->addError('queue', 'This patient already has an active queue entry today.');
-
-            return;
-        }
-
-        $this->pendingPatientId = (int) $validated['selectedPatientId'];
-        $this->pendingQueueNumber = (int) $validated['queueNumber'];
-        $this->assignmentDate = $date;
-        unset($this->pendingPatient);
-        $patient = PatientInformation::findOrFail($this->pendingPatientId);
-        $patientName = trim(implode(' ', array_filter([$patient->first_name, $patient->middle_name, $patient->last_name])));
-        $this->dispatch('queue-assignment-prepared', message: "Add {$patientName} to the queue with assigned number {$this->pendingQueueNumber}?");
+        unset($this->selectedPatient, $this->patientResults);
     }
 
     public function addPatient(): void
@@ -107,44 +72,31 @@ class QueueManagement extends Component
         $this->resetErrorBag();
 
         try {
-            if ($this->pendingPatientId === null || $this->pendingQueueNumber === null) {
-                throw ValidationException::withMessages(['queue' => 'Review the patient and assigned number before confirming.']);
-            }
-
-            $queue = app(QueueWorkflow::class)->addPatient($this->pendingPatientId, $this->pendingQueueNumber, $this->assignmentDate);
+            $workflow = app(QueueWorkflow::class);
+            $this->validate($workflow->assignmentRules(), $workflow->assignmentMessages());
+            $queue = $workflow->addPatient($this->selectedPatientId);
         } catch (ValidationException $exception) {
             $this->setErrorBag($exception->validator->errors());
-            $this->dispatch('queue-assignment-finished');
-            $this->reset('pendingPatientId', 'pendingQueueNumber', 'assignmentDate');
 
             return;
         } catch (QueryException $exception) {
             report($exception);
-            $this->addError('queue', 'Unable to save this assigned number. Refresh the queue and try again.');
-            $this->dispatch('queue-assignment-finished');
-            $this->reset('pendingPatientId', 'pendingQueueNumber', 'assignmentDate');
+            $this->addError('queue', 'Unable to add this patient to the queue. Please try again.');
 
             return;
         }
 
-        $this->queueDate = now('Asia/Manila')->toDateString();
-        $this->reset('selectedPatientId', 'queueNumber', 'pendingPatientId', 'pendingQueueNumber', 'assignmentDate', 'patientSearch', 'search', 'status');
+        $this->queueDate = $queue->queue_date->toDateString();
+        $this->reset('selectedPatientId', 'patientSearch', 'search', 'status');
         $this->resetPage();
-        unset($this->queues, $this->patientResults, $this->selectedPatient, $this->pendingPatient, $this->assignedNumbers);
-        session()->flash('success', "Patient added successfully. Assigned queue number: {$queue->queue_number}.");
-        $this->dispatch('queue-assignment-finished');
+        unset($this->queues, $this->patientResults, $this->selectedPatient, $this->assignedNumbers);
+        session()->flash('success', "Patient added successfully. Assigned queue number: {$queue->formattedQueueNumber()}.");
     }
 
     #[Computed]
     public function selectedPatient(): ?PatientInformation
     {
         return $this->selectedPatientId === null ? null : PatientInformation::find($this->selectedPatientId);
-    }
-
-    #[Computed]
-    public function pendingPatient(): ?PatientInformation
-    {
-        return $this->pendingPatientId === null ? null : PatientInformation::find($this->pendingPatientId);
     }
 
     #[Computed]
@@ -171,7 +123,7 @@ class QueueManagement extends Component
         }
 
         unset($this->queues);
-        session()->flash('success', "Queue #{$queue->queue_number}: {$queue->status}.");
+        session()->flash('success', "Queue #{$queue->formattedQueueNumber()}: {$queue->status}.");
 
         if ($nextStatus === 'Vital Signs') {
             $this->redirect(route('queues.vital-signs', ['patient_id' => $queue->patient_id, 'queue_id' => $queueId]), navigate: true);
@@ -217,6 +169,7 @@ class QueueManagement extends Component
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $query) use ($search): void {
                     $query->where('queue_number', 'like', "%{$search}%")
+                        ->when(ctype_digit($search), fn (Builder $query): Builder => $query->orWhere('queue_number', ltrim($search, '0') ?: '0'))
                         ->orWhere('patient_id', 'like', "%{$search}%")
                         ->orWhereHas('patient', function (Builder $query) use ($search): void {
                             $this->searchPatients($query, $search);

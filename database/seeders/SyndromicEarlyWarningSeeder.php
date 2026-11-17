@@ -200,7 +200,7 @@ class SyndromicEarlyWarningSeeder extends Seeder
             $birthdate = $time->subYears(18 + $number % 50)->subMonths($number % 12)->toDateString();
             $patient = PatientInformation::create([
                 'first_name' => self::PREFIX, 'middle_name' => null, 'last_name' => 'Patient '.str_pad((string) $number, 5, '0', STR_PAD_LEFT),
-                'birthdate' => $birthdate, 'age' => (int) CarbonImmutable::parse($birthdate)->diffInYears($time),
+                'birthdate' => $birthdate,
                 'sex' => $number % 2 === 0 ? 'Female' : 'Male',
                 'address' => 'FICTIONAL TEST ADDRESS '.$number.' - Barangay Alabang, Muntinlupa City',
                 'surveillance_residence' => 'Alabang', 'contact_number' => null, 'emergency_contact' => null,

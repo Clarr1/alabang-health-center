@@ -26,12 +26,12 @@
                 <h2 class="text-sm font-semibold">{{ $area }}</h2>
                 @if ($serving->isNotEmpty())
                     <div class="mt-4 flex items-center justify-between gap-4">
-                        <p class="text-2xl font-semibold tracking-wide">{{ $serving->first()->queue_number }}</p>
+                        <p class="text-2xl font-semibold tracking-wide">{{ $serving->first()->formattedQueueNumber() }}</p>
                         <p class="text-right text-xs">{{ trim(implode(' ', array_filter([$serving->first()->patient?->first_name, $serving->first()->patient?->middle_name, $serving->first()->patient?->last_name]))) ?: 'Patient unavailable' }}</p>
                     </div>
                     <p class="mt-4 text-[11px] text-muted">{{ $serving->count() }} {{ $serving->count() === 1 ? 'patient' : 'patients' }} {{ $area === 'Assessment' ? 'called or in assessment' : 'in consultation' }} today</p>
                     @if ($serving->count() > 1)
-                        <p class="mt-2 text-[11px] text-muted">Also serving: {{ $serving->skip(1)->pluck('queue_number')->join(', ') }}</p>
+                        <p class="mt-2 text-[11px] text-muted">Also serving: {{ $serving->skip(1)->map(fn ($queue) => $queue->formattedQueueNumber())->join(', ') }}</p>
                     @endif
                 @else
                     <p class="mt-4 text-lg font-semibold text-muted">No patient being served</p>

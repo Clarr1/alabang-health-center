@@ -1,4 +1,4 @@
-<div x-data x-on:patient-updated="window.alert('Patient updated successfully.'); Livewire.navigate($event.detail.redirectUrl)" class="relative mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8 lg:py-8">
+<div wire:poll.60s x-data x-on:patient-updated="window.alert('Patient updated successfully.'); Livewire.navigate($event.detail.redirectUrl)" class="relative mx-auto max-w-[1440px] px-4 py-7 text-ink sm:px-7 lg:px-8 lg:py-8">
     <img src="{{ asset('images/barangay-alabang.png') }}" alt="" aria-hidden="true" class="pointer-events-none absolute right-4 top-5 w-[440px] max-w-[70%] rounded-full opacity-[0.035]">
     <div class="relative mb-6 flex flex-wrap items-start justify-between gap-4">
         <div><h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">Edit Patient</h1><p class="mt-2 text-sm text-muted">Update information for patient #{{ $patientId }}. Fields marked * are required.</p></div>
