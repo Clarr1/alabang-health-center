@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\PatientCardController;
+use App\Http\Controllers\PatientMedicalRecordPdfController;
 use App\Http\Controllers\ProfileController;
 use App\Livewire\DetectionSettings;
 use App\Livewire\DiagnosisManagement;
@@ -47,6 +48,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/patients/{patient}/card', [PatientCardController::class, 'show'])->name('patients.card.show');
     Route::get('/patients/{patient}/card/pdf', [PatientCardController::class, 'download'])->name('patients.card.download');
     Route::get('/patient-vital-signs/{patient_id?}', VitalSignsForm::class)->middleware('can:queue-register')->name('patient.vital-signs-form');
+    Route::get('/medical-records/records/{patient}/visits/{record}/pdf', [PatientMedicalRecordPdfController::class, 'show'])->middleware('can:queue-view')->name('medical-records.pdf');
+    Route::get('/medical-records/records/{patient}/visits/{record}/download', [PatientMedicalRecordPdfController::class, 'download'])->middleware('can:queue-view')->name('medical-records.download');
+    Route::get('/medical-records/records/{patient}/visits/{record}/print', [PatientMedicalRecordPdfController::class, 'print'])->middleware('can:queue-view')->name('medical-records.print');
     Route::get('/medical-records/records/{record}', MedicalRecordDetails::class)->middleware('can:queue-view')->name('medical-records.show');
     Route::get('/medical-records/{patient_id?}', MedicalRecordsTable::class)->middleware('can:queue-view')->name('medical-records.index');
     Route::get('/doctors-consultation', MedicalRecordsForm::class)->middleware('can:queue-consult')->name('doctors-consultation.index');

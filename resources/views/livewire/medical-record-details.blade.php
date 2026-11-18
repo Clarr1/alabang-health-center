@@ -137,6 +137,9 @@
                             <p class="mt-2 whitespace-pre-line break-words text-xs leading-relaxed"><span class="font-medium">Treatment / notes:</span> {{ filled($record->treatment) ? $record->treatment : 'Not provided.' }}</p>
                             <p class="mt-2 whitespace-pre-line break-words text-xs leading-relaxed text-muted">{{ filled($record->consultation_notes) ? $record->consultation_notes : 'Not provided.' }}</p>
                             <div class="mt-3 flex flex-wrap gap-2">
+                                @can('queue-view')
+                                    <a href="{{ route('medical-records.print', ['patient' => $patient, 'record' => $record, ...($familyHouseholdId !== null ? ['familyHouseholdId' => $familyHouseholdId] : [])]) }}" target="_blank" rel="noopener noreferrer" class="patient-button px-3 py-2 text-xs">Print Medical Record</a>
+                                @endcan
                                 <button type="button" aria-label="View All Details" x-on:click="$el.focus(); $dispatch('open-consultation-modal', { id: {{ $record->medical_record_id }} })" class="patient-button px-3 py-2 text-xs">View original entry</button>
                                 <button type="button" disabled class="patient-button cursor-not-allowed px-3 py-2 text-xs" title="Addenda and corrections are not available yet.">Addendum / correction</button>
                             </div>
