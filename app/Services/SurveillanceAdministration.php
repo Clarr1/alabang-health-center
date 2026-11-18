@@ -94,6 +94,32 @@ class SurveillanceAdministration
         ]));
     }
 
+    /** @param array{category_id: mixed, minimum_cases: mixed, is_active: bool} $data */
+    public function saveThreshold(array $data): void
+    {
+        Gate::authorize('surveillance-manage');
+        $validated = Validator::make($data, [
+            'category_id' => ['required', 'integer', 'exists:syndrome_categories,id'],
+            'minimum_cases' => ['required', 'integer', 'min:1', 'max:10000'],
+            'is_active' => ['required', 'boolean'],
+        ])->validate();
+
+        DB::transaction(function () use ($validated): void {
+            $setting = SurveillanceSetting::lockForUpdate()->findOrFail(1);
+            $category = SyndromeCategory::lockForUpdate()->findOrFail($validated['category_id']);
+            $settings = SurveillanceSetting::current();
+            $before = ['minimum_cases' => SurveillanceSetting::minimumCases($category->id, $settings), 'is_active' => $category->is_active];
+            $settings['category_thresholds'][$category->id] = (int) $validated['minimum_cases'];
+            $settings['settings_reviewed'] = true;
+            $setting->update(['values' => $settings, 'updated_by' => auth()->id()]);
+            $category->update(['is_active' => $validated['is_active']]);
+            $this->audit('Category monitoring threshold changed', [
+                'category_id' => $category->id, 'syndrome_name' => $category->name,
+                'before' => $before, 'after' => ['minimum_cases' => (int) $validated['minimum_cases'], 'is_active' => $category->is_active],
+            ]);
+        });
+    }
+
     /** @param array<string, mixed> $values */
     public function saveSettings(array $values): void
     {
@@ -110,9 +136,12 @@ class SurveillanceAdministration
             'overdispersion_ratio' => ['required', 'numeric', 'between:1.1,3'],
             'frequency_minutes' => ['required', 'integer', Rule::in([15, 30, 60, 120, 360, 720, 1440])],
             'settings_reviewed' => ['accepted'],
+            'category_thresholds' => ['sometimes', 'array'],
+            'category_thresholds.*' => ['required', 'integer', 'min:1', 'max:10000'],
         ])->validate();
         DB::transaction(function () use ($validated): void {
             $previous = SurveillanceSetting::current();
+            $validated['category_thresholds'] ??= $previous['category_thresholds'];
             SurveillanceSetting::updateOrCreate(['id' => 1], ['values' => $validated, 'updated_by' => auth()->id()]);
             $this->audit('Statistical configuration reviewed for development testing', ['before' => $previous, 'after' => $validated]);
         });

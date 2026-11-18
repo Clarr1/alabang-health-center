@@ -2,6 +2,8 @@
 
 return [
     'demo' => (bool) env('SURVEILLANCE_DEMO', false),
+    /** Initial software-testing minimum; requires local clinical validation. */
+    'minimum_case_threshold' => 10,
     /**
      * Upper-tail probabilities after the existing per-run Bonferroni correction.
      * These development presets do not control false positives across future runs.
@@ -12,6 +14,7 @@ return [
         'high' => ['label' => 'High Sensitivity', 'alpha' => 0.05, 'watch_alpha' => 0.1],
     ],
     'defaults' => [
+        'category_thresholds' => [],
         'settings_reviewed' => false,
         'window_hours' => 48,
         'baseline_weeks' => 12,

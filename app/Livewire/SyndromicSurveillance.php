@@ -13,6 +13,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -156,8 +157,10 @@ class SyndromicSurveillance extends Component
     public function render(): View
     {
         Gate::authorize('surveillance-view');
-        $summaryColumns = ['id', 'surveillance_run_id', 'syndrome_category_id', 'syndrome_name', 'observed', 'expected', 'outcome'];
-        $latest = SurveillanceRun::where('status', 'Completed')->latest('window_end')->latest('id')->with('results:'.implode(',', $summaryColumns))->first();
+        $summaryColumns = ['id', 'surveillance_run_id', 'syndrome_category_id', 'syndrome_name', 'observed', 'expected', 'outcome',
+            DB::raw("json_object('minimum_case_threshold', json_extract(calculation, '$.minimum_case_threshold'), 'threshold_reached', json_extract(calculation, '$.threshold_reached')) as calculation"),
+        ];
+        $latest = SurveillanceRun::where('status', 'Completed')->latest('window_end')->latest('id')->with(['results' => fn ($query) => $query->select($summaryColumns)])->first();
         $alerts = $this->dateFilters(SurveillanceAlert::whereNotNull('surveillance_result_id'), 'detected_at')
             ->when(ctype_digit($this->syndromeFilter), fn (Builder $query): Builder => $query->where('syndrome_category_id', $this->syndromeFilter))
             ->when(in_array($this->statusFilter, SurveillanceAlert::STATUSES, true), fn (Builder $query): Builder => $query->where('status', $this->statusFilter));
@@ -175,8 +178,14 @@ class SyndromicSurveillance extends Component
 
         return view('livewire.syndromic-surveillance', [
             'latest' => $latest,
+            'qualifyingCases' => $latest ? DB::table('surveillance_result_cases')
+                ->join('surveillance_classifications', 'surveillance_classifications.id', '=', 'surveillance_result_cases.surveillance_classification_id')
+                ->whereIn('surveillance_result_id', $latest->results->modelKeys())
+                ->distinct()->count('medical_record_id') : null,
+            'thresholdsReached' => $latest?->results->filter(fn (SurveillanceResult $result): bool => (bool) ($result->calculation['threshold_reached'] ?? false))->count(),
+            'monitoredCategories' => SyndromeCategory::where('is_active', true)->count(),
             'results' => $latest?->results->when(ctype_digit($this->syndromeFilter), fn ($rows) => $rows->where('syndrome_category_id', $this->syndromeFilter)) ?? collect(),
-            'alerts' => $alerts->with('result:'.implode(',', $summaryColumns), 'result.run', 'reviewer')->latest('id')->paginate(10),
+            'alerts' => $alerts->with(['result' => fn ($query) => $query->select($summaryColumns), 'result.run', 'reviewer'])->latest('id')->paginate(10),
             'categories' => SyndromeCategory::orderBy('name')->get(), 'selected' => $selected,
             'reviewStatuses' => $selected ? app(SurveillanceReview::class)->allowedStatuses($selected->status) : [],
             'activeAlerts' => SurveillanceAlert::whereNotNull('surveillance_result_id')->whereIn('status', ['New', 'Under Review', 'Escalated'])->count(),

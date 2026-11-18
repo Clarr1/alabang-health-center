@@ -72,6 +72,7 @@ class SurveillanceEngine
                 $run->update(['eligible_cases' => $this->inWindow($records, $start, $end)->unique('patient_id')->count()]);
                 $familySize = max(1, $categories->filter(fn ($category): bool => $category->rules->isNotEmpty())->count());
                 foreach ($categories as $category) {
+                    $minimumCases = SurveillanceSetting::minimumCases($category->id, $settings);
                     $rule = $category->rules->first();
                     $snapshots = $rule ? SurveillanceClassification::where('syndrome_category_id', $category->id)->where('syndrome_rule_version_id', $rule->id)
                         ->whereIn('medical_record_id', $records->keys())->orderBy('occurred_at')->orderBy('medical_record_id')->get() : collect();
@@ -114,6 +115,9 @@ class SurveillanceEngine
                         'family_size' => $familySize, 'multiplicity' => 'Bonferroni per detection run',
                         'seasonality' => $settings['baseline_weeks'] >= 60 ? 'Matching weekdays within 45 calendar days of the current season' : 'Recent matching weekdays; annual seasonality not estimable',
                         'episode_gap_hours' => $settings['episode_gap_hours'], 'window' => '[start, end)',
+                        'minimum_case_threshold' => $minimumCases,
+                        'threshold_reached' => $currentCases->count() >= $minimumCases,
+                        'evaluation_path' => $currentCases->count() >= $minimumCases ? 'threshold_triggered' : 'below_threshold_safeguard',
                     ];
                     $resultData = [
                         'syndrome_category_id' => $category->id, 'syndrome_rule_version_id' => $rule?->id,
@@ -123,17 +127,18 @@ class SurveillanceEngine
                     if ($rule === null) {
                         $resultData['reason'] = 'A healthcare professional must approve a syndrome definition before detection.';
                     } elseif (! $settings['settings_reviewed']) {
-                        $resultData['reason'] = 'An administrator must review the statistical configuration for development testing.';
+                        $resultData['reason'] = 'An administrator must save the monitoring thresholds before development testing.';
                     } elseif (count($periods) >= (int) $settings['minimum_periods'] && $currentAttendance >= $settings['minimum_attendance'] && $currentCoverage >= $settings['minimum_coverage'] && array_sum(array_column($periods, 'count')) > 0) {
                         $stats = $this->statistics->evaluate($currentCases->count(), $currentAttendance, $periods, (float) $settings['overdispersion_ratio']);
                         $adjusted = min(1.0, $stats['probability'] * $familySize);
-                        $outcome = $this->statistics->outcome($currentCases->count(), $stats['expected'], $adjusted, (float) $settings['alpha'], (float) $settings['watch_alpha']);
+                        $outcome = $this->statistics->outcome($currentCases->count(), $stats['expected'], $adjusted, (float) $settings['alpha'], (float) $settings['watch_alpha'], $minimumCases);
                         $resultData = array_merge($resultData, [
                             'expected' => $stats['expected'], 'probability' => $stats['probability'], 'adjusted_probability' => $adjusted,
                             'model' => $stats['model'], 'outcome' => $outcome,
                             'reason' => match ($outcome) {
                                 'Alert' => 'Statistically significant increase requiring healthcare personnel review. This signal does not confirm an outbreak.',
-                                'Watch' => 'An increase warrants monitoring but does not meet the configured alert threshold. This signal does not confirm an outbreak.',
+                                'Signal' => 'Unusual increase below the minimum case threshold. This separate statistical safeguard requires review and does not confirm an outbreak.',
+                                'Watch' => 'An increase warrants monitoring but does not meet the statistical alert criteria. This signal does not confirm an outbreak.',
                                 default => 'No statistically unusual increase under the configured model.',
                             },
                         ]);
@@ -146,7 +151,7 @@ class SurveillanceEngine
                     }
                     $result = $run->results()->create($resultData + ['calculation' => $calculation]);
                     $result->cases()->attach($currentCases->pluck('id')->all());
-                    if ($result->outcome === 'Alert') {
+                    if (in_array($result->outcome, ['Alert', 'Signal'], true)) {
                         $this->alert($result, $currentCases);
                     }
                 }
@@ -221,7 +226,11 @@ class SurveillanceEngine
             'reference' => 'SUR-'.now('Asia/Manila')->format('Ymd').'-'.Str::upper((string) Str::ulid()),
             'syndrome_category_id' => $result->syndrome_category_id, 'surveillance_result_id' => $result->id,
             'fingerprint' => $fingerprint, 'detected_at' => now('UTC'), 'status' => 'New',
-            'syndrome' => $result->syndrome_name, 'mode' => 'development', 'snapshot' => ['result_id' => $result->id, 'engine' => 'structured-statistical-v1'],
+            'syndrome' => $result->syndrome_name, 'mode' => 'development', 'snapshot' => [
+                'result_id' => $result->id, 'engine' => 'structured-statistical-v1',
+                'signal_type' => $result->calculation['evaluation_path'],
+                'minimum_case_threshold' => $result->calculation['minimum_case_threshold'],
+            ],
             'peak_count' => $result->observed, 'first_detected_at' => now('UTC'), 'last_qualifying_at' => now('UTC'),
         ]);
     }

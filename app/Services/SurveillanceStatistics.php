@@ -6,13 +6,17 @@ use RuntimeException;
 
 class SurveillanceStatistics
 {
-    public function outcome(int $observed, float $expected, float $adjustedProbability, float $alpha, float $watchAlpha): string
+    public function outcome(int $observed, float $expected, float $adjustedProbability, float $alpha, float $watchAlpha, int $minimumCases = 1): string
     {
         if ($observed <= $expected) {
             return 'Normal';
         }
 
-        return $adjustedProbability <= $alpha ? 'Alert' : ($adjustedProbability <= $watchAlpha ? 'Watch' : 'Normal');
+        if ($adjustedProbability <= $alpha) {
+            return $observed >= $minimumCases ? 'Alert' : 'Signal';
+        }
+
+        return $adjustedProbability <= $watchAlpha ? 'Watch' : 'Normal';
     }
 
     /**

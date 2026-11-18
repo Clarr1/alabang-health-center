@@ -30,4 +30,10 @@ class SurveillanceSetting extends Model
 
         return 'custom';
     }
+
+    /** @param array<string, mixed> $settings */
+    public static function minimumCases(int $categoryId, array $settings): int
+    {
+        return (int) ($settings['category_thresholds'][$categoryId] ?? config('surveillance.minimum_case_threshold'));
+    }
 }

@@ -2,60 +2,50 @@
     <header>
         <p class="text-xs font-semibold uppercase tracking-wide text-muted">Syndromic Surveillance</p>
         <h1 class="mt-2 text-2xl font-semibold">Detection Settings</h1>
-        <p class="mt-2 text-sm text-muted">Choose how the system identifies unusual increases in Barangay Alabang.</p>
+        <p class="mt-2 text-sm text-muted">Set the minimum qualifying cases for each monitoring category in Barangay Alabang.</p>
     </header>
     <x-surveillance-nav active="surveillance.settings" />
     @if (session('surveillance-status'))<p role="status" class="patient-card text-sm">{{ session('surveillance-status') }}</p>@endif
     @if ($errors->any())<div role="alert" class="rounded-lg bg-red-50 p-4 text-sm text-red-700"><ul class="list-inside list-disc">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+    <p class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Development settings: the initial minimum of {{ config('surveillance.minimum_case_threshold') }} cases is for software testing and is not a medically approved threshold. Local clinical validation is required.</p>
+    <section class="patient-card space-y-4">
+        <h2 class="text-lg font-semibold">Category monitoring settings</h2>
+        <div class="overflow-x-auto"><table class="w-full text-left text-sm">
+            <thead class="bg-blush"><tr><th class="p-3">Syndrome / disease category</th><th class="p-3">Minimum cases</th><th class="p-3">Monitoring period</th><th class="p-3">Monitoring status</th></tr></thead>
+            <tbody class="divide-y divide-line">@forelse ($categories as $category)
+                <tr wire:key="threshold-{{ $category->id }}"><td class="p-3 font-medium">{{ $category->name }}</td><td class="p-3">{{ \App\Models\SurveillanceSetting::minimumCases($category->id, $settings) }}@unless (isset($settings['category_thresholds'][$category->id]))<span class="block text-xs text-muted">Initial development value</span>@endunless</td><td class="p-3">48 Hours (fixed)</td><td class="p-3">{{ $category->is_active ? 'Active' : 'Disabled' }}</td></tr>
+            @empty<tr><td colspan="4" class="p-4 text-muted">No categories yet. Add and approve syndrome definitions before monitoring.</td></tr>@endforelse</tbody>
+        </table></div>
+    </section>
     <div class="grid items-start gap-6 xl:grid-cols-3">
         <form wire:submit="save" class="patient-card space-y-5 xl:col-span-2">
-            <div><h2 class="text-lg font-semibold">Detection configuration</h2><p class="mt-2 text-sm text-muted">Higher sensitivity can flag smaller increases and may produce more alerts that need investigation.</p></div>
-            @if ($sensitivity === 'custom')<p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Your existing custom thresholds are still in use. Select a sensitivity to replace only those thresholds.</p>@endif
-            <fieldset class="space-y-3">
-                <legend class="patient-label">Detection sensitivity</legend>
-                @foreach ($profiles as $key => $profile)
-                    <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-4 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                        <input type="radio" wire:model="sensitivity" value="{{ $key }}" class="mt-1 border-line text-blue-600">
-                        <span><span class="block text-sm font-semibold">{{ $profile['label'] }}</span><span class="mt-1 block text-sm text-muted">{{ match ($key) { 'low' => 'Flags only stronger, more unusual increases.', 'high' => 'Flags smaller unusual increases; more alerts may need review.', default => 'Balances early warning with the number of alerts to review.' } }}</span></span>
-                    </label>
-                @endforeach
-            </fieldset>
-            <dl class="grid gap-4 rounded-lg bg-blush p-4 text-sm sm:grid-cols-2">
-                <div><dt class="font-semibold">Monitoring window</dt><dd class="mt-1">48 hours · Fixed</dd><dd class="mt-1 text-xs text-muted">Each detection reviews the previous 48 hours.</dd></div>
-                <div><dt class="font-semibold">Historical comparison period</dt><dd class="mt-1">{{ $settings['baseline_weeks'] }} weeks · Managed by the system</dd><dd class="mt-1 text-xs text-muted">Uses comparable weekdays with enough reliable records.</dd></div>
-            </dl>
-            <label class="flex items-start gap-2 text-sm"><input type="checkbox" wire:model="reviewed" class="mt-1 rounded" required><span>I have reviewed this sensitivity for development testing. Local clinical validation is still required.</span></label>
-            @error('reviewed')<p class="text-sm text-red-700">{{ $message }}</p>@enderror
-            <button type="submit" wire:loading.attr="disabled" class="patient-button bg-brand-blue">Save detection settings</button>
-            <p wire:loading wire:target="save" role="status" class="text-sm text-muted">Saving settings…</p>
+            <h2 class="text-lg font-semibold">Edit a category</h2>
+            <div><label for="threshold-category" class="patient-label">Syndrome / disease category</label><select id="threshold-category" wire:model.live="categoryId" class="patient-input w-full" required><option value="">Select a category</option>@foreach ($categories as $category)<option value="{{ $category->id }}">{{ $category->name }}</option>@endforeach</select></div>
+            <div><label for="minimum-cases" class="patient-label">Minimum qualifying cases</label><input id="minimum-cases" type="number" min="1" max="10000" step="1" wire:model="minimumCases" class="patient-input w-full" required aria-describedby="threshold-help"><p id="threshold-help" class="mt-2 text-sm text-muted">Enter 1 to 10,000 cases. Reaching this minimum starts the threshold-based statistical check. It does not confirm an outbreak.</p></div>
+            <p class="text-sm"><span class="font-semibold">Monitoring period:</span> Rolling 48 hours (fixed)</p>
+            <label class="flex items-start gap-2 text-sm"><input type="checkbox" wire:model="isActive" class="mt-1 rounded"><span>Enable monitoring for this category. An approved syndrome definition is also required.</span></label>
+            <button type="submit" wire:loading.attr="disabled" @disabled($categories->isEmpty()) class="patient-button bg-brand-blue">Save monitoring settings</button>
+            <p wire:loading wire:target="save" role="status" class="text-sm text-muted">Saving settings...</p>
         </form>
         <section class="patient-card space-y-4">
-            <h2 class="text-lg font-semibold">Automatic statistical processing</h2>
-            <dl class="space-y-4 text-sm">
-                @foreach (['Historical baseline' => 'Automatically calculated', 'Statistical method' => 'Automatically selected', 'Statistical evaluation' => 'Automatically performed', 'Data reliability checks' => 'Required before an alert', 'Multiple syndrome adjustment' => 'Applied automatically', 'Duplicate alert prevention' => 'Enabled', 'Surveillance coverage' => 'Barangay Alabang only'] as $label => $value)
-                    <div><dt class="text-muted">{{ $label }}</dt><dd class="mt-1 font-medium">{{ $value }}</dd></div>
-                @endforeach
-            </dl>
-            <p class="border-t border-line pt-4 text-xs text-muted">Alerts remain inside the application. A signal prompts review and does not confirm an outbreak.</p>
+            <h2 class="text-lg font-semibold">How detection works</h2>
+            <p class="text-sm text-muted">The system counts qualifying illness episodes in completed, eligible consultations. When the minimum is reached, it compares those cases with reliable historical records.</p>
+            <p class="text-sm text-muted">A significant unusual increase below the minimum can still produce a separate signal for review. Missing or unreliable history is reported as insufficient data.</p>
+            <p class="text-sm text-muted">Historical comparisons, statistical calculations, and duplicate prevention are managed automatically. Changing a minimum affects subsequent checks; saved alert results and reviews retain their original values.</p>
+            <p class="border-t border-line pt-4 text-xs text-muted">Barangay Alabang only. Alerts remain inside the application. No email or SMS notifications are sent by this engine.</p>
         </section>
     </div>
     <section class="patient-card space-y-4">
         <div class="flex flex-wrap items-start justify-between gap-4">
-            <div><h2 class="text-lg font-semibold">Development testing</h2><p class="mt-2 max-w-3xl text-sm text-muted">Preview the saved settings using fictional case counts. This tests the statistical comparison; patient classification and alert review are exercised in the separate fictional demo.</p></div>
-            <button type="button" wire:click="testDetection" wire:loading.attr="disabled" class="patient-button bg-brand-blue">Run Test Detection</button>
+            <div><h2 class="text-lg font-semibold">Development testing</h2><p class="mt-2 max-w-3xl text-sm text-muted">Preview the selected category's saved minimum using fictional counts below, at, and above that minimum, a stable pattern, and missing history. These previews do not validate clinical thresholds.</p></div>
+            <button type="button" wire:click="testDetection" wire:loading.attr="disabled" @disabled($categories->isEmpty()) class="patient-button bg-brand-blue">Run Test Detection</button>
         </div>
-        <p class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">SIMULATED RESULTS ONLY · No patient records, surveillance results, or alerts are saved. Save any sensitivity changes before testing.</p>
-        @unless ($settings['settings_reviewed'])<p class="text-sm text-amber-900">Save a reviewed sensitivity first. Until then, tests report insufficient data.</p>@endunless
-        <p wire:loading wire:target="testDetection" role="status" class="text-sm text-muted">Running simulated detection…</p>
+        <p class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">SIMULATED RESULTS ONLY. No patient records, surveillance results, or alerts are saved. Save settings before testing. Previews can evaluate disabled categories without enabling actual monitoring.</p>
+        @unless ($settings['settings_reviewed'])<p class="text-sm text-amber-900">Save monitoring settings first. Until then, tests report insufficient data.</p>@endunless
+        <p wire:loading wire:target="testDetection" role="status" class="text-sm text-muted">Running simulated detection...</p>
         @if ($simulation)
-            <div role="status" class="space-y-2 text-sm"><p class="font-semibold">Test completed · {{ $simulation['completed_at'] }} · {{ ucfirst($simulation['sensitivity']) }} sensitivity</p><p>{{ $simulation['cases'] }} simulated current cases evaluated · {{ $simulation['historical_cases'] }} simulated historical cases · {{ $simulation['test_alerts'] }} test alert previews</p></div>
-            <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-blush"><tr><th class="p-3">Simulated scenario</th><th class="p-3">Current cases</th><th class="p-3">Expected cases</th><th class="p-3">Test result</th></tr></thead><tbody class="divide-y divide-line">@foreach ($simulation['results'] as $result)<tr><td class="p-3">{{ $result['name'] }}</td><td class="p-3">{{ $result['observed'] }}</td><td class="p-3">{{ $result['expected'] !== null ? number_format($result['expected'], 2) : 'Not enough data' }}</td><td class="p-3"><x-surveillance-outcome :outcome="$result['outcome']" /></td></tr>@endforeach</tbody></table></div>
-        @else<p class="text-sm text-muted">No test run yet. The preview includes stable counts, an unusual increase, and missing history.</p>@endif
+            <div role="status" class="space-y-2 text-sm"><p class="font-semibold">Test completed: {{ $simulation['completed_at'] }}. {{ $simulation['category'] }}: saved minimum {{ $simulation['minimum_cases'] }}; monitoring {{ $simulation['is_active'] ? 'active' : 'disabled' }}.</p><p>{{ $simulation['cases'] }} simulated current cases evaluated; {{ $simulation['historical_cases'] }} simulated historical cases; {{ $simulation['test_alerts'] }} threshold alert previews; {{ $simulation['test_signals'] }} below-minimum signal previews.</p></div>
+            <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-blush"><tr><th class="p-3">Simulated scenario</th><th class="p-3">Current cases</th><th class="p-3">Minimum reached?</th><th class="p-3">Historical expected cases</th><th class="p-3">Test result</th></tr></thead><tbody class="divide-y divide-line">@foreach ($simulation['results'] as $result)<tr><td class="p-3">{{ $result['name'] }}</td><td class="p-3">{{ $result['observed'] }}</td><td class="p-3">{{ $result['threshold_reached'] ? 'Yes' : 'No' }}</td><td class="p-3">{{ $result['expected'] !== null ? number_format($result['expected'], 2) : 'Not enough data' }}</td><td class="p-3"><x-surveillance-outcome :outcome="$result['outcome']" :threshold-reached="$result['threshold_reached']" /></td></tr>@endforeach</tbody></table></div>
+        @else<p class="text-sm text-muted">No test run yet. Patient classification and alert review remain available through the existing isolated fictional demo.</p>@endif
     </section>
-    <details wire:ignore.self class="patient-card text-sm">
-        <summary class="cursor-pointer font-semibold">Statistical Details</summary>
-        <p class="mt-3 text-muted">The existing attendance-adjusted Poisson model automatically switches to a negative binomial model when historical variability is high. Reliability checks and the same approved syndrome version are required. Bonferroni correction adjusts for the categories tested in each run. Repeated, overlapping windows remain correlated; these thresholds do not control false alerts across all future runs.</p>
-        <div class="mt-4 overflow-x-auto"><table class="w-full text-left text-xs"><thead><tr><th class="p-2">Sensitivity</th><th class="p-2">Alert threshold</th><th class="p-2">Watch threshold</th></tr></thead><tbody>@foreach ($profiles as $profile)<tr><td class="p-2">{{ $profile['label'] }}</td><td class="p-2">{{ $profile['alpha'] }}</td><td class="p-2">{{ $profile['watch_alpha'] }}</td></tr>@endforeach</tbody></table></div>
-        <p class="mt-3 text-muted">Existing internal reliability, episode separation, historical comparison, and scheduling settings are preserved. All-zero history and unreliable or insufficient records produce “Insufficient Data”. Simulated previews assume complete symptom coverage and three fictional categories; they do not validate clinical rules.</p>
-    </details>
 </div>
