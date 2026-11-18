@@ -34,6 +34,8 @@ class SyndromicSurveillance extends Component
 
     public string $syndromeFilter = '';
 
+    public string $trendCategoryId = '';
+
     public string $statusFilter = '';
 
     public string $from = '';
@@ -69,9 +71,10 @@ class SyndromicSurveillance extends Component
     {
         return [
             'syndromeFilter' => ['nullable', 'integer', 'exists:syndrome_categories,id'],
+            'trendCategoryId' => ['nullable', 'integer', 'exists:syndrome_categories,id'],
             'statusFilter' => ['nullable', Rule::in(SurveillanceAlert::STATUSES)],
             'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'to' => ['nullable', 'date_format:Y-m-d', Rule::when($this->validDate($this->from), ['after_or_equal:from'])],
         ];
     }
 
@@ -79,6 +82,9 @@ class SyndromicSurveillance extends Component
     {
         Gate::authorize('surveillance-view');
         if (array_key_exists($property, $this->rules())) {
+            if ($property === 'syndromeFilter') {
+                $this->trendCategoryId = '';
+            }
             $this->resetPage();
             $this->validateOnly($property);
         }
@@ -87,7 +93,7 @@ class SyndromicSurveillance extends Component
     public function clearFilters(): void
     {
         Gate::authorize('surveillance-view');
-        $this->reset('syndromeFilter', 'statusFilter', 'from', 'to');
+        $this->reset('syndromeFilter', 'trendCategoryId', 'statusFilter', 'from', 'to');
         $this->resetPage();
         $this->resetValidation();
     }
@@ -160,7 +166,12 @@ class SyndromicSurveillance extends Component
         $summaryColumns = ['id', 'surveillance_run_id', 'syndrome_category_id', 'syndrome_name', 'observed', 'expected', 'outcome',
             DB::raw("json_object('minimum_case_threshold', json_extract(calculation, '$.minimum_case_threshold'), 'threshold_reached', json_extract(calculation, '$.threshold_reached')) as calculation"),
         ];
-        $latest = SurveillanceRun::where('status', 'Completed')->latest('window_end')->latest('id')->with(['results' => fn ($query) => $query->select($summaryColumns)])->first();
+        $latestQuery = SurveillanceRun::where('status', 'Completed');
+        if ($this->section === 'overview') {
+            $latestQuery = $this->dateFilters($latestQuery, 'window_end');
+        }
+        $latest = $latestQuery->latest('window_end')->latest('id')->with(['results' => fn ($query) => $query->select($summaryColumns)])->first();
+        $results = $latest?->results->when(ctype_digit($this->syndromeFilter), fn ($rows) => $rows->where('syndrome_category_id', $this->syndromeFilter)) ?? collect();
         $alerts = $this->dateFilters(SurveillanceAlert::whereNotNull('surveillance_result_id'), 'detected_at')
             ->when(ctype_digit($this->syndromeFilter), fn (Builder $query): Builder => $query->where('syndrome_category_id', $this->syndromeFilter))
             ->when(in_array($this->statusFilter, SurveillanceAlert::STATUSES, true), fn (Builder $query): Builder => $query->where('status', $this->statusFilter));
@@ -176,15 +187,41 @@ class SyndromicSurveillance extends Component
             }
         }]);
 
+        $focusedResult = $results->firstWhere('syndrome_category_id', $this->trendCategoryId)
+            ?? $results->sortByDesc(fn (SurveillanceResult $result): int => (match ($result->outcome) {
+                'Alert' => 4, 'Signal' => 3, 'Watch' => 2, 'Insufficient Data' => 1, default => 0,
+            }) * 100000 + $result->observed)->first();
+        $trendPoints = $focusedResult ? $trends->flatten(1)->where('syndrome_category_id', $focusedResult->syndrome_category_id)
+            ->sortBy(fn (SurveillanceResult $result): string => $result->run->window_end->format('Y-m-d H:i:s').sprintf('%020d', $result->id))->take(-24)->values() : collect();
+        $overviewCharts = [
+            'comparison' => [
+                'labels' => $results->pluck('syndrome_name')->values()->all(),
+                'observed' => $results->pluck('observed')->values()->all(),
+                'expected' => $results->pluck('expected')->values()->all(),
+                'outcomes' => $results->pluck('outcome')->values()->all(),
+            ],
+            'trend' => [
+                'name' => $focusedResult?->syndrome_name,
+                'labels' => $trendPoints->map(fn (SurveillanceResult $result): string => $result->run->window_end->setTimezone('Asia/Manila')->format('d M Y H:i'))->all(),
+                'observed' => $trendPoints->pluck('observed')->all(),
+                'expected' => $trendPoints->pluck('expected')->all(),
+                'minimum' => $trendPoints->map(fn (SurveillanceResult $result): ?int => $result->calculation['minimum_case_threshold'] ?? null)->all(),
+                'outcomes' => $trendPoints->pluck('outcome')->all(),
+            ],
+        ];
+
         return view('livewire.syndromic-surveillance', [
             'latest' => $latest,
+            'focusedResult' => $focusedResult, 'trendPoints' => $trendPoints, 'overviewCharts' => $overviewCharts,
+            'recentAlerts' => $this->section === 'overview' ? (clone $alerts)->with(['result' => fn ($query) => $query->select($summaryColumns)])
+                ->latest('detected_at')->latest('id')->limit(4)->get() : collect(),
             'qualifyingCases' => $latest ? DB::table('surveillance_result_cases')
                 ->join('surveillance_classifications', 'surveillance_classifications.id', '=', 'surveillance_result_cases.surveillance_classification_id')
-                ->whereIn('surveillance_result_id', $latest->results->modelKeys())
+                ->whereIn('surveillance_result_id', $results->modelKeys())
                 ->distinct()->count('medical_record_id') : null,
-            'thresholdsReached' => $latest?->results->filter(fn (SurveillanceResult $result): bool => (bool) ($result->calculation['threshold_reached'] ?? false))->count(),
+            'thresholdsReached' => $latest ? $results->filter(fn (SurveillanceResult $result): bool => (bool) ($result->calculation['threshold_reached'] ?? false))->count() : null,
             'monitoredCategories' => SyndromeCategory::where('is_active', true)->count(),
-            'results' => $latest?->results->when(ctype_digit($this->syndromeFilter), fn ($rows) => $rows->where('syndrome_category_id', $this->syndromeFilter)) ?? collect(),
+            'results' => $results,
             'alerts' => $alerts->with(['result' => fn ($query) => $query->select($summaryColumns), 'result.run', 'reviewer'])->latest('id')->paginate(10),
             'categories' => SyndromeCategory::orderBy('name')->get(), 'selected' => $selected,
             'reviewStatuses' => $selected ? app(SurveillanceReview::class)->allowedStatuses($selected->status) : [],

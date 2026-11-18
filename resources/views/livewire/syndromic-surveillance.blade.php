@@ -6,18 +6,15 @@
         </div>
     </div>
     <x-surveillance-nav :active="match ($section) { 'alerts' => 'surveillance.alerts', 'history' => 'surveillance.history', default => 'surveillance.index' }" />
-    <p class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Development surveillance · Signals identify unusual syndrome patterns requiring healthcare personnel review. They do not confirm a disease or an outbreak. Alerts remain inside this application.</p>
+    @if ($section === 'overview')
+        <p class="flex items-start gap-2 text-xs leading-relaxed text-muted"><span class="shrink-0 rounded bg-white px-2 py-0.5 font-semibold">Development</span><span>Unusual patterns require healthcare review. Signals do not confirm a disease or outbreak. Alerts remain internal.</span></p>
+    @else
+        <p class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Development surveillance · Signals identify unusual syndrome patterns requiring healthcare personnel review. They do not confirm a disease or an outbreak. Alerts remain inside this application.</p>
+    @endif
     @if (session('surveillance-status'))<p role="status" class="patient-card text-sm">{{ session('surveillance-status') }}</p>@endif
     @if ($errors->any())<div role="alert" class="rounded-lg bg-red-50 p-4 text-sm text-red-700"><ul class="list-inside list-disc">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
     <p wire:loading.delay role="status" class="text-xs text-muted">Updating surveillance information…</p>
-    @if ($section === 'overview')
-        <section aria-label="Surveillance summary" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <article class="patient-card"><h2 class="text-sm text-muted">Qualifying cases · 48 hours</h2><p class="mt-3 text-3xl font-semibold">{{ $qualifyingCases ?? '—' }}</p><p class="mt-2 text-xs text-muted">Counted episode references, once across categories, in the latest check.</p></article>
-            <article class="patient-card"><h2 class="text-sm text-muted">Monitored syndrome categories</h2><p class="mt-3 text-3xl font-semibold">{{ $monitoredCategories }}</p><p class="mt-2 text-xs text-muted">Categories currently enabled for monitoring.</p></article>
-            <a href="{{ route('surveillance.alerts') }}" wire:navigate class="patient-card block hover:border-blue-300"><h2 class="text-sm text-muted">Active alerts and signals</h2><p class="mt-3 text-3xl font-semibold">{{ $activeAlerts }}</p><p class="mt-2 text-xs text-muted">{{ $awaitingReview }} alerts requiring review. New, under review, or escalated.</p></a>
-            <article class="patient-card"><h2 class="text-sm text-muted">Categories reaching minimum</h2><p class="mt-3 text-3xl font-semibold">{{ $thresholdsReached ?? '—' }}</p><p class="mt-2 text-xs text-muted">In the latest check. Reaching a minimum does not confirm an outbreak.</p></article>
-        </section>
-    @endif
+
     @if ($section !== 'overview')
     <section class="patient-card">
         <h2 class="font-semibold">Filter recorded results and alerts</h2><p class="mt-1 text-xs text-muted">Dates filter monitoring-window end dates and alert detection dates. Counts always use the saved rolling window.</p>
@@ -31,23 +28,7 @@
     </section>
     @endif
     @if ($section === 'overview')
-    <section class="patient-card space-y-4">
-        <h2 class="text-lg font-semibold">Latest completed detection</h2>
-        @if ($latest)
-            <p class="text-sm">{{ $latest->window_start->setTimezone('Asia/Manila')->format('d M Y H:i') }} to {{ $latest->window_end->setTimezone('Asia/Manila')->format('d M Y H:i') }} (end excluded)</p>
-            <p class="text-xs text-muted">{{ $latest->eligible_cases }} unique eligible patients with valid encounters in this window, across all syndromes. Syndrome totals count illness episodes and may overlap. Run #{{ $latest->id }} · {{ ucfirst($latest->source) }} · Completed {{ $latest->finished_at?->setTimezone('Asia/Manila')->format('d M Y H:i') }}</p>
-            <p class="text-xs text-muted">Cases below count separate illness episodes. Blue = current cases; gray = expected cases; red or amber = unusual increases. One patient may appear in more than one syndrome category.</p>
-            <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-blush"><tr><th class="p-3">Syndrome category</th><th class="p-3">Current cases</th><th class="p-3">Minimum threshold</th><th class="p-3">Historical expected cases</th><th class="p-3">Detection status</th><th class="p-3">What to do next</th></tr></thead><tbody class="divide-y divide-line">
-                @forelse ($results as $result)
-                    @php
-                        $scale = max(1, $results->max('observed'), $results->max('expected') ?? 0);
-                    @endphp
-                    <tr><td class="min-w-[180px] p-3 font-medium">{{ $result->syndrome_name }}<div class="mt-2 space-y-1" aria-hidden="true"><div @class(['h-2 rounded', 'bg-red-500' => $result->outcome === 'Alert', 'bg-amber-500' => in_array($result->outcome, ['Watch', 'Signal']), 'bg-blue-500' => ! in_array($result->outcome, ['Alert', 'Watch', 'Signal'])]) style="width: {{ 100 * $result->observed / $scale }}%"></div>@if ($result->expected !== null)<div class="h-2 rounded bg-gray-400" style="width: {{ 100 * $result->expected / $scale }}%"></div>@endif</div></td><td class="p-3 font-semibold">{{ $result->observed }}</td><td class="p-3">{{ $result->calculation['minimum_case_threshold'] ?? 'Not recorded' }}<span class="block text-xs text-muted">{{ isset($result->calculation['threshold_reached']) ? ($result->calculation['threshold_reached'] ? 'Minimum reached' : 'Below minimum') : 'Legacy result' }}</span></td><td class="p-3">{{ $result->expected !== null ? number_format($result->expected, 2) : 'Not enough data' }}</td><td class="p-3"><x-surveillance-outcome :outcome="$result->outcome" :threshold-reached="$result->calculation['threshold_reached'] ?? false" /></td><td class="max-w-md p-3 leading-relaxed">{{ match ($result->outcome) { 'Alert' => 'Review the surveillance alert and the related patient records.', 'Signal' => 'Review this separate below-minimum signal and the related patient records.', 'Watch' => 'Monitor recent cases and check that symptom records are complete.', 'Normal' => 'Continue routine monitoring.', default => 'Check approved syndrome rules, verified residence, and the completeness of current and historical symptom records.' } }}</td></tr>
-                @empty<tr><td colspan="6" class="p-5 text-muted">No active syndrome categories in this detection.</td></tr>@endforelse
-            </tbody></table></div>
-        @else<p class="text-sm text-muted">No completed checks yet. Approve syndrome categories, save monitoring thresholds, and verify patient residence before checking for case increases.</p>@endif
-        <div class="flex flex-wrap gap-3"><a href="{{ route('surveillance.alerts') }}" wire:navigate class="patient-button">View surveillance alerts</a><a href="{{ route('surveillance.history') }}" wire:navigate class="patient-button">View surveillance history</a></div>
-    </section>
+        @include('livewire.syndromic-surveillance-overview')
     @endif
     @if ($section === 'history')
     <section class="patient-card space-y-4">

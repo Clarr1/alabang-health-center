@@ -25,8 +25,10 @@ use Database\Factories\VitalSignFactory;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
@@ -605,4 +607,96 @@ it('renders preserved historical alerts without inventing a minimum that was nev
         ->assertSee('Not recorded (legacy result)')->assertSee('SIMULATED clinician wording');
 
     expect($alert->result->fresh()->calculation)->toBe($calculation);
+});
+
+it('provides actual saved counts minimums and expected values to the Overview charts', function () {
+    $rule = simulatedSurveillanceBaseline();
+    app(SurveillanceEngine::class)->run();
+
+    Livewire::test(SyndromicSurveillance::class)
+        ->assertViewHas('overviewCharts', fn (array $charts): bool => $charts['comparison'] === [
+            'labels' => ['SIMULATED Febrile'], 'observed' => [10], 'expected' => [2.0], 'outcomes' => ['Alert'],
+        ] && $charts['trend']['observed'] === [10] && $charts['trend']['expected'] === [2.0] && $charts['trend']['minimum'] === [1])
+        ->assertViewHas('focusedResult', fn (SurveillanceResult $result): bool => $result->syndrome_category_id === $rule->syndrome_category_id)
+        ->assertViewHas('recentAlerts', fn ($alerts): bool => $alerts->count() === 1)
+        ->assertSee('Case pattern over time')->assertSee('Cases across syndrome categories');
+});
+
+it('updates the Overview snapshot and trend data when date and syndrome filters change', function () {
+    $rule = simulatedSurveillanceBaseline();
+    $engine = app(SurveillanceEngine::class);
+    $first = $engine->run();
+    $this->travel(1)->days();
+    simulatedSurveillanceRecord(CarbonImmutable::now('UTC')->subHour());
+    $second = $engine->run();
+
+    Livewire::test(SyndromicSurveillance::class)->assertViewHas('latest', fn (SurveillanceRun $run): bool => $run->id === $second->id)
+        ->assertViewHas('overviewCharts', fn (array $charts): bool => $charts['trend']['observed'] === [10, 11])
+        ->set('to', '2026-11-09')->assertHasNoErrors()
+        ->assertViewHas('latest', fn (SurveillanceRun $run): bool => $run->id === $first->id)
+        ->assertViewHas('overviewCharts', fn (array $charts): bool => $charts['trend']['observed'] === [10])
+        ->set('syndromeFilter', (string) $rule->syndrome_category_id)->assertViewHas('qualifyingCases', 10)
+        ->set('from', '2026-11-08')->set('to', '2026-11-08')->assertHasNoErrors()
+        ->assertViewHas('latest', null)->assertViewHas('overviewCharts', fn (array $charts): bool => $charts['comparison']['labels'] === [] && $charts['trend']['observed'] === [])
+        ->assertSee('No completed checks in this view')->call('clearFilters')->assertSet('trendCategoryId', '')
+        ->assertViewHas('latest', fn (SurveillanceRun $run): bool => $run->id === $second->id);
+});
+
+it('shows honest empty chart states when there are no saved results', function () {
+    $this->actingAs(User::factory()->create(['role' => 'Admin']));
+
+    Livewire::test(SyndromicSurveillance::class)->assertSee('No completed checks in this view')
+        ->assertSee('No alerts match this view')->assertDontSee('<canvas', false)
+        ->assertViewHas('overviewCharts', fn (array $charts): bool => $charts['comparison']['observed'] === [] && $charts['trend']['observed'] === []);
+});
+
+it('keeps insufficient historical comparisons as missing chart values and hides review actions from staff', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-09 10:00:00', 'UTC'));
+    simulatedSurveillanceRule();
+    app(SurveillanceEngine::class)->run();
+    $staff = User::factory()->create(['role' => 'Local Health Unit Staff']);
+
+    Livewire::actingAs($staff)->test(SyndromicSurveillance::class)
+        ->assertViewHas('overviewCharts', fn (array $charts): bool => $charts['comparison']['expected'] === [null] && $charts['trend']['expected'] === [null])
+        ->assertSee('Not enough reliable data')->assertDontSee('Review alert')->assertDontSee('Check for case increases');
+});
+
+it('keeps chart payloads synchronized through trend selection category filtering and empty results', function () {
+    simulatedSurveillanceBaseline();
+    $administration = app(SurveillanceAdministration::class);
+    $respiratory = $administration->saveDefinition([
+        'name' => 'SIMULATED Respiratory', 'description' => 'Fictional chart integration fixture', 'is_active' => true,
+        'symptom_ids' => [Symptom::where('name', 'Cough')->value('id')], 'minimum_matches' => 1,
+        'applies_from' => now('Asia/Manila')->subWeeks(14)->toDateString(), 'rationale' => 'SIMULATED chart integration fixture; not a clinical definition.',
+    ]);
+    $administration->approve($respiratory->id);
+    app(SurveillanceEngine::class)->run();
+    $component = Livewire::test(SyndromicSurveillance::class);
+    $initialHtml = $component->html();
+    $responses = [];
+
+    $component->set('trendCategoryId', (string) $respiratory->syndrome_category_id)->assertHasNoErrors()
+        ->assertViewHas('overviewCharts', fn (array $charts): bool => $charts['trend']['name'] === 'SIMULATED Respiratory' && $charts['trend']['observed'] === [0]);
+    $responses[] = ['snapshot' => json_encode($component->snapshot), 'effects' => $component->effects];
+    $component->set('syndromeFilter', (string) $respiratory->syndrome_category_id)->assertSet('trendCategoryId', '')
+        ->assertViewHas('overviewCharts', fn (array $charts): bool => $charts['comparison']['labels'] === ['SIMULATED Respiratory']);
+    $responses[] = ['snapshot' => json_encode($component->snapshot), 'effects' => $component->effects];
+    $component->set('from', '2026-11-08')->assertHasNoErrors();
+    $responses[] = ['snapshot' => json_encode($component->snapshot), 'effects' => $component->effects];
+    $component->set('to', '2026-11-08')->assertHasNoErrors()->assertSee('No completed checks in this view')
+        ->assertViewHas('overviewCharts', fn (array $charts): bool => $charts['comparison']['observed'] === []);
+    $responses[] = ['snapshot' => json_encode($component->snapshot), 'effects' => $component->effects];
+    $component->call('clearFilters')->assertHasNoErrors()
+        ->assertViewHas('overviewCharts', fn (array $charts): bool => $charts['comparison']['observed'] === [10, 0]);
+    $responses[] = ['snapshot' => json_encode($component->snapshot), 'effects' => $component->effects];
+    $component->call('$refresh')->assertHasNoErrors();
+    $responses[] = ['snapshot' => json_encode($component->snapshot), 'effects' => $component->effects];
+
+    if (getenv('SURVEILLANCE_OVERVIEW_PREVIEW')) {
+        $directory = storage_path('framework/testing/surveillance-overview');
+        File::ensureDirectoryExists($directory);
+        File::put($directory.'/page.html', Blade::render('<x-app-layout>{!! $componentHtml !!}</x-app-layout>', ['componentHtml' => $initialHtml]));
+        File::put($directory.'/responses.json', json_encode($responses, JSON_THROW_ON_ERROR));
+        File::put($directory.'/metadata.json', json_encode(['component_id' => $component->id(), 'respiratory_category_id' => $respiratory->syndrome_category_id], JSON_THROW_ON_ERROR));
+    }
 });
