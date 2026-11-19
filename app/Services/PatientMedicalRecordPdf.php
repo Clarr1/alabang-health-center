@@ -18,7 +18,7 @@ class PatientMedicalRecordPdf
     /** @return array{record: MedicalRecord, patient: PatientInformation, fullName: string, familyNumber: ?string, generatedAt: Carbon, ageAtVisit: ?int} */
     public function data(MedicalRecord $record): array
     {
-        Gate::authorize('queue-view');
+        Gate::authorize('medical-records-view');
         $record = MedicalRecord::query()->where('patient_id', $record->patient_id)->findOrFail($record->getKey());
         $patientId = $record->patient_id;
         $queueId = $record->queue_id;

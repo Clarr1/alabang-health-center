@@ -80,8 +80,8 @@
             <aside class="patient-card" aria-labelledby="permission-summary-title"><h2 id="permission-summary-title" class="text-base font-semibold">Role Permission Summary</h2>
                 <dl class="mt-5 space-y-4 text-xs leading-relaxed">
                     <div><dt class="font-semibold">Staff</dt><dd class="mt-2 text-muted">Register and edit patient demographics, check patients in, manage assessment queue stages, record vital signs, and view patient records.</dd></div>
-                    <div><dt class="font-semibold">Healthcare Personnel</dt><dd class="mt-2 text-muted">View patient records, document consultations, and manage consultation and completion queue stages. Uses the existing Doctor permissions.</dd></div>
-                    <div><dt class="font-semibold">Admin</dt><dd class="mt-2 text-muted">All existing staff and consultation permissions, all queue transitions, and user account and role management.</dd></div>
+                    <div><dt class="font-semibold">Healthcare Personnel</dt><dd class="mt-2 text-muted">Access medical records, consultations, follow-ups, and syndromic surveillance.</dd></div>
+                    <div><dt class="font-semibold">Admin</dt><dd class="mt-2 text-muted">Full access to all modules, administrative functions, and user and role management.</dd></div>
                 </dl>
             </aside>
         </div>

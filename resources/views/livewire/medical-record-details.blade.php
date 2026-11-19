@@ -28,7 +28,7 @@
         $followUps = $patient->medicalRecords->whereNotNull('follow_up_date')->sortByDesc('follow_up_date');
     @endphp
     <img src="{{ asset('images/barangay-alabang.png') }}" alt="" aria-hidden="true" class="pointer-events-none absolute right-4 top-5 w-[440px] max-w-[70%] rounded-full opacity-[0.035]">
-    @if ($familyHouseholdId !== null && ! $embedded)
+    @if ($familyHouseholdId !== null && ! $embedded && auth()->user()->can('queue-view'))
         <nav aria-label="Breadcrumb" class="relative mb-4 text-xs text-muted"><ol class="flex flex-wrap gap-2"><li><a href="{{ route('patients.index') }}" wire:navigate>Patient Record</a></li><li>/</li><li><a href="{{ route('families.index') }}" wire:navigate>Family Records</a></li><li>/</li><li><a href="{{ $backUrl }}" wire:navigate>{{ $patient->household->label }} ({{ $patient->household->family_number }})</a></li><li>/</li><li aria-current="page">{{ $patient->first_name }} {{ $patient->last_name }}</li></ol></nav>
     @endif
     <div class="relative mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -37,8 +37,8 @@
             <p class="mt-2 text-sm text-muted">Longitudinal history &middot; Access restricted to care-related work.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ $backUrl }}" wire:navigate class="patient-button bg-white text-xs">{{ $familyHouseholdId === null ? 'Back to Medical Records' : 'Back to Family Record' }}</a>
-            @if ($familyHouseholdId === null && $patient->household)
+            <a href="{{ $backUrl }}" wire:navigate class="patient-button bg-white text-xs">{{ $familyHouseholdId === null || auth()->user()->cannot('queue-view') ? 'Back to Medical Records' : 'Back to Family Record' }}</a>
+            @if ($familyHouseholdId === null && $patient->household && auth()->user()->can('queue-view'))
                 <a href="{{ route('families.show', $patient->household) }}" wire:navigate class="patient-button bg-white text-xs">View Family Record &middot; {{ $patient->household->family_number }}</a>
             @endif
             @can('queue-consult')
@@ -137,7 +137,7 @@
                             <p class="mt-2 whitespace-pre-line break-words text-xs leading-relaxed"><span class="font-medium">Treatment / notes:</span> {{ filled($record->treatment) ? $record->treatment : 'Not provided.' }}</p>
                             <p class="mt-2 whitespace-pre-line break-words text-xs leading-relaxed text-muted">{{ filled($record->consultation_notes) ? $record->consultation_notes : 'Not provided.' }}</p>
                             <div class="mt-3 flex flex-wrap gap-2">
-                                @can('queue-view')
+                                @can('medical-records-view')
                                     <a href="{{ route('medical-records.print', ['patient' => $patient, 'record' => $record, ...($familyHouseholdId !== null ? ['familyHouseholdId' => $familyHouseholdId] : [])]) }}" target="_blank" rel="noopener noreferrer" class="patient-button px-3 py-2 text-xs">Print Medical Record</a>
                                 @endcan
                                 <button type="button" aria-label="View All Details" x-on:click="$el.focus(); $dispatch('open-consultation-modal', { id: {{ $record->medical_record_id }} })" class="patient-button px-3 py-2 text-xs">View original entry</button>

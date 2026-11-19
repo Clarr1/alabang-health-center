@@ -6,6 +6,7 @@ use App\Models\PatientInformation;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -38,6 +39,7 @@ class PatientTable extends Component
 
     public function generateIdCard(int $patientId): void
     {
+        Gate::authorize('patient-records-view');
         abort_unless(auth()->check(), 403);
         PatientInformation::findOrFail($patientId);
         $this->cardPatientId = $patientId;
@@ -46,11 +48,13 @@ class PatientTable extends Component
 
     public function closeCardModal(): void
     {
+        Gate::authorize('patient-records-view');
         $this->reset('cardPatientId', 'showCardModal');
     }
 
     public function updated(string $property): void
     {
+        Gate::authorize('patient-records-view');
         if (in_array($property, ['search', 'recordStatus', 'sex', 'lastVisit'], true)) {
             $this->resetPage();
         }
@@ -58,6 +62,7 @@ class PatientTable extends Component
 
     public function resetFilters(): void
     {
+        Gate::authorize('patient-records-view');
         $this->reset('search', 'recordStatus', 'sex', 'lastVisit');
         $this->resetPage();
     }
@@ -66,6 +71,8 @@ class PatientTable extends Component
     #[Computed]
     public function recordStatuses(): Collection
     {
+        Gate::authorize('patient-records-view');
+
         return PatientInformation::query()->whereNotNull('status')->where('status', '!=', '')
             ->distinct()->orderBy('status')->pluck('status');
     }
@@ -73,12 +80,15 @@ class PatientTable extends Component
     #[Computed]
     public function activePatientCount(): int
     {
+        Gate::authorize('patient-records-view');
+
         return PatientInformation::where('status', 'Active')->count();
     }
 
     #[Computed]
     public function patients(): LengthAwarePaginator
     {
+        Gate::authorize('patient-records-view');
         $search = trim($this->search);
         $visits = PatientInformation::query()
             ->withMax('vitalSigns as last_vital_at', 'recorded_at')
@@ -128,6 +138,7 @@ class PatientTable extends Component
 
     public function viewPatient(int $patientId): void
     {
+        Gate::authorize('patient-records-view');
         if (! PatientInformation::whereKey($patientId)->exists()) {
             return;
         }
@@ -138,6 +149,7 @@ class PatientTable extends Component
 
     public function closePatientModal(): void
     {
+        Gate::authorize('patient-records-view');
         $this->selectedPatientId = null;
         $this->showPatientModal = false;
         unset($this->selectedPatient);
@@ -146,19 +158,20 @@ class PatientTable extends Component
     #[Computed]
     public function selectedPatient(): ?PatientInformation
     {
+        Gate::authorize('patient-records-view');
         if (! $this->selectedPatientId) {
             return null;
         }
 
-        return PatientInformation::with([
-            'vitalSigns.recordedBy',
-            'medicalRecords.handledBy',
-            'medicalRecords.vitalSign',
-        ])->find($this->selectedPatientId);
+        return PatientInformation::with(Gate::allows('medical-records-view') ? [
+            'vitalSigns.recordedBy', 'medicalRecords.handledBy', 'medicalRecords.vitalSign',
+        ] : [])->find($this->selectedPatientId);
     }
 
     public function render()
     {
+        Gate::authorize('patient-records-view');
+
         return view('livewire.patient-table');
     }
 }

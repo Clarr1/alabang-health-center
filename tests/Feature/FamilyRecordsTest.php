@@ -38,7 +38,7 @@ it('provides individual and family views while retaining legacy patients without
         ->assertSee('Legacy patient')->assertSee('Not assigned');
     Livewire::test(PatientTable::class)->set('search', (string) $legacy->patient_id)
         ->call('viewPatient', $legacy->patient_id)->assertSet('selectedPatientId', $legacy->patient_id)->assertSee('Patient Details');
-    $this->get(route('medical-records.show', $legacy))->assertOk()->assertSee('Back to Medical Records');
+    $this->actingAs(User::factory()->create(['role' => 'Doctor']))->get(route('medical-records.show', $legacy))->assertOk()->assertSee('Back to Medical Records');
     expect($member->fresh()->household_id)->toBe($household->id)->and($legacy->fresh()->household_id)->toBeNull();
 });
 
@@ -97,7 +97,7 @@ it('handles households without members and missing households', function () {
 it('keeps member consultations vitals profiles immunizations conditions and followups separate', function () {
     $household = Household::factory()->create();
     $members = PatientInformation::factory()->count(2)->create(['household_id' => $household->id]);
-    $staff = User::factory()->create();
+    $staff = User::factory()->create(['role' => 'Admin']);
     foreach ($members as $index => $patient) {
         $vital = VitalSignFactory::new()->create(['patient_id' => $patient->patient_id, 'blood_pressure' => $index === 0 ? '111/71' : '133/83']);
         MedicalRecordFactory::new()->create(['patient_id' => $patient->patient_id, 'vital_signs_id' => $vital->vital_id, 'diagnosis' => 'Member '.$index.' diagnosis', 'prescription' => 'Member '.$index.' medicine']);
@@ -125,7 +125,7 @@ it('switches and closes the selected member summary', function () {
     foreach ($members as $index => $patient) {
         familyConsultation($patient, ['diagnosis' => 'Selected member '.$index]);
     }
-    $form = Livewire::actingAs(User::factory()->create())->test(FamilyRecord::class, ['household' => $household])
+    $form = Livewire::actingAs(User::factory()->create(['role' => 'Admin']))->test(FamilyRecord::class, ['household' => $household])
         ->call('selectMember', $members[0]->patient_id)->assertSet('selectedMemberId', $members[0]->patient_id)
         ->assertSee('Selected member 0')->assertDontSee('Selected member 1')
         ->call('selectMember', $members[1]->patient_id)->assertSet('selectedMemberId', $members[1]->patient_id)
@@ -139,7 +139,7 @@ it('orders consultations newest first and retains their complete original detail
     $patient = PatientInformation::factory()->create(['household_id' => $household->id]);
     familyConsultation($patient, ['consultation_date' => '2026-01-01', 'diagnosis' => 'Older clinical entry']);
     $new = familyConsultation($patient, ['consultation_date' => '2026-02-01', 'diagnosis' => 'Newest clinical entry', 'chief_complaint' => 'Documented complaint', 'treatment' => 'Documented treatment', 'laboratory_requests' => 'Requested laboratory test']);
-    $this->actingAs(User::factory()->create())->get(route('families.members.show', ['familyHouseholdId' => $household->id, 'record' => $patient]))->assertOk()
+    $this->actingAs(User::factory()->create(['role' => 'Admin']))->get(route('families.members.show', ['familyHouseholdId' => $household->id, 'record' => $patient]))->assertOk()
         ->assertSeeInOrder(['Newest clinical entry', 'Older clinical entry'])->assertSee('Documented complaint')->assertSee('Documented treatment')
         ->assertSee('Requested laboratory test')->assertSee('View original entry')->assertSee('consultation-modal-title-'.$new->medical_record_id, false);
 });
@@ -147,7 +147,7 @@ it('orders consultations newest first and retains their complete original detail
 it('rejects members outside the selected household in routes summaries and nested profiles', function () {
     $household = Household::factory()->create();
     $outsider = PatientInformation::factory()->create();
-    $this->actingAs(User::factory()->create())->get(route('families.members.show', ['familyHouseholdId' => $household->id, 'record' => $outsider]))->assertNotFound();
+    $this->actingAs(User::factory()->create(['role' => 'Admin']))->get(route('families.members.show', ['familyHouseholdId' => $household->id, 'record' => $outsider]))->assertNotFound();
     expect(fn () => Livewire::test(FamilyRecord::class, ['household' => $household])->call('selectMember', $outsider->patient_id))->toThrow(ModelNotFoundException::class);
     expect(fn () => Livewire::test(PatientProfileForm::class, ['patientId' => $outsider->patient_id, 'familyHouseholdId' => $household->id]))->toThrow(ModelNotFoundException::class);
 });
@@ -159,7 +159,7 @@ it('does not expose mislinked vital signs or followup consultations from another
     $otherVital = VitalSignFactory::new()->create(['patient_id' => $other->patient_id, 'blood_pressure' => '199/99']);
     MedicalRecordFactory::new()->create(['patient_id' => $patient->patient_id, 'vital_signs_id' => $otherVital->vital_id, 'diagnosis' => 'Own consultation']);
     $otherRecord = familyConsultation($other, ['diagnosis' => 'Other private diagnosis']);
-    $staff = User::factory()->create();
+    $staff = User::factory()->create(['role' => 'Admin']);
     $patient->followUps()->create(['medical_record_id' => $otherRecord->medical_record_id, 'purpose' => 'Own followup', 'scheduled_at' => now(), 'mobile' => '09171234567', 'created_by' => $staff->user_id]);
     $this->actingAs($staff)->get(route('families.members.show', ['familyHouseholdId' => $household->id, 'record' => $patient]))->assertOk()
         ->assertSee('Own consultation')->assertSee('Own followup')->assertDontSee('Other private diagnosis')->assertDontSee('199/99');
@@ -168,7 +168,7 @@ it('does not expose mislinked vital signs or followup consultations from another
 it('requires current household membership on subsequent family and nested requests', function (string $component) {
     $household = Household::factory()->create();
     $patient = PatientInformation::factory()->create(['household_id' => $household->id]);
-    Livewire::actingAs(User::factory()->create());
+    Livewire::actingAs(User::factory()->create(['role' => 'Admin']));
     $form = match ($component) {
         'family' => Livewire::test(FamilyRecord::class, ['household' => $household])->call('selectMember', $patient->patient_id),
         'medical' => Livewire::test(MedicalRecordDetails::class, ['record' => $patient, 'familyHouseholdId' => $household->id]),
@@ -181,7 +181,7 @@ it('requires current household membership on subsequent family and nested reques
 it('locks the household and member context against client changes', function (string $component, string $property) {
     $household = Household::factory()->create();
     $patient = PatientInformation::factory()->create(['household_id' => $household->id]);
-    Livewire::actingAs(User::factory()->create());
+    Livewire::actingAs(User::factory()->create(['role' => 'Admin']));
     $form = match ($component) {
         'family' => Livewire::test(FamilyRecord::class, ['household' => $household]),
         'medical' => Livewire::test(MedicalRecordDetails::class, ['record' => $patient, 'familyHouseholdId' => $household->id]),
@@ -213,7 +213,7 @@ it('keeps sensitive assessments out of staff responses and state but permits cli
     $household = Household::factory()->create();
     $patient = PatientInformation::factory()->create(['household_id' => $household->id, 'birthdate' => now()->subYears(15)->toDateString(), 'patient_category' => 'Adolescent']);
     PatientProfile::factory()->create(['patient_id' => $patient->patient_id, 'headss_home' => 'Confidential HEADSS narrative', 'reproductive_applicable' => 'Yes', 'family_planning' => 'Confidential reproductive narrative']);
-    $this->actingAs(User::factory()->create())->get(route('families.members.show', ['familyHouseholdId' => $household->id, 'record' => $patient]))->assertOk()
+    $this->actingAs(User::factory()->create())->get(route('families.members.show', ['familyHouseholdId' => $household->id, 'record' => $patient]))->assertForbidden()
         ->assertDontSee('Confidential HEADSS narrative')->assertDontSee('Confidential reproductive narrative');
     $form = Livewire::test(PatientProfileForm::class, ['patientId' => $patient->patient_id, 'familyHouseholdId' => $household->id]);
     expect($form->get('profile'))->not->toHaveKeys(['headss_home', 'family_planning']);
@@ -273,7 +273,14 @@ it('filters restricted values from profile history within family records', funct
 
 it('authorizes family routes and hides registration actions from doctors', function (string $role) {
     $household = Household::factory()->create();
-    $this->actingAs(User::factory()->create(['role' => $role]))->get(route('families.index'))->assertOk();
+    $this->actingAs(User::factory()->create(['role' => $role]));
+    if ($role === 'Doctor') {
+        $this->get(route('families.index'))->assertForbidden();
+        $this->get(route('families.show', $household))->assertForbidden();
+
+        return;
+    }
+    $this->get(route('families.index'))->assertOk();
     $response = $this->get(route('families.show', $household))->assertOk();
     if ($role === 'Doctor') {
         $response->assertDontSee('Add Family Member');
@@ -307,7 +314,7 @@ it('reauthorizes subsequent household requests after access is revoked', functio
 });
 
 it('audits household and individual member access with the correct actor and identifiers', function () {
-    $staff = User::factory()->create();
+    $staff = User::factory()->create(['role' => 'Admin']);
     $household = Household::factory()->create();
     $patient = PatientInformation::factory()->create(['household_id' => $household->id]);
     Livewire::actingAs($staff)->test(FamilyRecord::class, ['household' => $household])->call('selectMember', $patient->patient_id);

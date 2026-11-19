@@ -56,7 +56,8 @@ class AuthenticatedSessionController extends Controller
 
         $ability = match ($route->getName()) {
             'dashboard', 'profile.edit', 'password.confirm' => null,
-            'patients.index', 'patients.card.show', 'patients.card.download', 'queues.index', 'queues.display', 'medical-records.index', 'medical-records.show' => 'queue-view',
+            'patients.index', 'patients.card.show', 'patients.card.download', 'queues.index', 'queues.display' => 'queue-view',
+            'medical-records.index', 'medical-records.show' => 'medical-records-view',
             'patient.information-form', 'patients.edit', 'patient.vital-signs-form', 'queues.vital-signs' => 'queue-register',
             'doctors-consultation.index', 'queues.consultation', 'medical-form.index' => 'queue-consult',
             'register', 'users-roles.index' => 'manage-accounts',

@@ -120,13 +120,13 @@ it('does not complete a visit using an unrelated consultation', function () {
 });
 
 it('reports invalid follow up filters and clears their errors', function (string $field, string $value) {
-    Livewire::test(FollowUps::class)->set($field, $value)->assertHasErrors($field)
+    Livewire::actingAs(User::factory()->create(['role' => 'Doctor']))->test(FollowUps::class)->set($field, $value)->assertHasErrors($field)
         ->assertSeeHtml('text-red-600')
         ->call('clearFilters')->assertHasNoErrors()->assertSet($field, '');
 })->with([['from', '2026-02-30'], ['to', 'not-a-date'], ['status', 'Unsupported']]);
 
 it('rejects a reversed follow up date range', function () {
-    Livewire::test(FollowUps::class)->set('from', '2026-11-10')->set('to', '2026-11-09')
+    Livewire::actingAs(User::factory()->create(['role' => 'Doctor']))->test(FollowUps::class)->set('from', '2026-11-10')->set('to', '2026-11-09')
         ->assertHasErrors('to')->call('clearFilters')->assertHasNoErrors();
 });
 

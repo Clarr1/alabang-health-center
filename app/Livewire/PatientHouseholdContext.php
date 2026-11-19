@@ -15,7 +15,7 @@ trait PatientHouseholdContext
     protected function contextPatientQuery(): Builder
     {
         if ($this->familyHouseholdId !== null) {
-            Gate::authorize('queue-view');
+            Gate::authorize('patient-profile-manage');
         }
 
         return PatientInformation::query()->when($this->familyHouseholdId !== null, fn (Builder $query): Builder => $query->where('household_id', $this->familyHouseholdId));

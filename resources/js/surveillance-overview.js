@@ -79,7 +79,7 @@ export default (payload) => {
                         datasets: [
                             { label: 'Observed cases', data: payload.trend.observed, borderColor: palette.blue, backgroundColor: '#a8dcf026', fill: true, tension: 0.2, borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6, pointBackgroundColor: payload.trend.outcomes.map(signalColor) },
                             { label: 'Historical expected', data: payload.trend.expected, borderColor: palette.gray, backgroundColor: palette.gray, borderDash: [5, 5], borderWidth: 2, pointRadius: 2, spanGaps: false },
-                            { label: 'Saved minimum', data: payload.trend.minimum, borderColor: palette.pink, backgroundColor: palette.pink, borderDash: [3, 4], borderWidth: 1.5, pointRadius: 2, spanGaps: false },
+                            ...(payload.trend.minimum ? [{ label: 'Saved minimum', data: payload.trend.minimum, borderColor: palette.pink, backgroundColor: palette.pink, borderDash: [3, 4], borderWidth: 1.5, pointRadius: 2, spanGaps: false }] : []),
                         ],
                     },
                     options: options(),

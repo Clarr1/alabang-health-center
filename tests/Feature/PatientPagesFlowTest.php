@@ -53,7 +53,7 @@ it('saves patient information on one page and vital signs on the next page', fun
         ->assertSee('Printable healthcare ID')
         ->assertSee(route('patients.card.show', $patient))
         ->assertSee(route('patients.card.download', $patient))
-        ->assertSee(route('medical-records.show', ['record' => $patient->patient_id]))
+        ->assertSee(route('patients.edit', $patient))
         ->assertSee('No queue number has been assigned.')
         ->call('savePatient')->assertHasNoErrors();
     expect(PatientInformation::count())->toBe(1);

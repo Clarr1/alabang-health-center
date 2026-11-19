@@ -43,9 +43,8 @@ it('links the patients page to the patient registration form', function () {
         ->assertSeeLivewire(PatientInformationForm::class);
 });
 
-it('shows the patient directory to doctors without registration links or registration access', function () {
-    $this->actingAs(User::factory()->create(['role' => 'Doctor']))->get(route('patients.index'))->assertOk()
-        ->assertSee('Patient Record')->assertDontSee('Register patient')->assertDontSee('aria-label="Patient Registration"', false);
+it('denies the patient directory and registration to doctors', function () {
+    $this->actingAs(User::factory()->create(['role' => 'Doctor']))->get(route('patients.index'))->assertForbidden();
     $this->get(route('patient.information-form'))->assertForbidden();
 });
 

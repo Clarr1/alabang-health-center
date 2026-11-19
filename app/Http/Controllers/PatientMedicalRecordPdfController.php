@@ -41,7 +41,7 @@ class PatientMedicalRecordPdfController extends Controller
 
     private function authorizeVisit(Request $request, PatientInformation $patient, MedicalRecord $record): void
     {
-        Gate::authorize('queue-view');
+        Gate::authorize('medical-records-view');
         abort_unless((int) $record->patient_id === (int) $patient->getKey(), 404);
         $validated = $request->validate(['familyHouseholdId' => ['nullable', 'integer', 'min:1']]);
         if (isset($validated['familyHouseholdId'])) {

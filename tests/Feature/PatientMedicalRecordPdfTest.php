@@ -121,7 +121,7 @@ it('allows individual visit printing for the existing medical record viewing rol
     $record = createVisitForPdf(PatientInformation::factory()->create());
     $this->get(route('medical-records.print', visitPdfParameters($record)))->assertOk();
     $this->get(route('medical-records.download', visitPdfParameters($record)))->assertOk()->assertHeader('Content-Type', 'application/pdf');
-})->with(['Admin', 'Doctor', 'Local Health Unit Staff']);
+})->with(['Admin', 'Doctor']);
 
 it('protects individual PDF download viewing and printing from unauthorized users', function (string $route) {
     $record = createVisitForPdf(PatientInformation::factory()->create());

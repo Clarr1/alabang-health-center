@@ -219,8 +219,7 @@ it('preserves review history rejects stale reviews and enforces backend roles', 
     expect($alert->fresh()->reviews()->count())->toBe(2)->and($alert->fresh()->status)->toBe('Resolved');
     $this->get(route('surveillance.index'))->assertOk()->assertSee('Surveillance: 0 new');
     $staff = User::factory()->create(['role' => 'Local Health Unit Staff']);
-    Livewire::actingAs($staff)->test(SyndromicSurveillance::class)
-        ->assertDontSee('SIMULATED clinician wording')->call('openAlert', $alert->id)->assertForbidden();
+    Livewire::actingAs($staff)->test(SyndromicSurveillance::class)->assertForbidden();
     $this->actingAs($staff)->get(route('surveillance.definitions'))->assertForbidden();
     expect(fn () => $review->record($alert->id, 3, 'Under Review', 'Unauthorized simulated change', null, null))->toThrow(AuthorizationException::class);
     expect($alert->fresh()->reviews()->count())->toBe(2);
@@ -650,13 +649,13 @@ it('shows honest empty chart states when there are no saved results', function (
         ->assertViewHas('overviewCharts', fn (array $charts): bool => $charts['comparison']['observed'] === [] && $charts['trend']['observed'] === []);
 });
 
-it('keeps insufficient historical comparisons as missing chart values and hides review actions from staff', function () {
+it('keeps insufficient historical comparisons as missing chart values for clinicians', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-09 10:00:00', 'UTC'));
     simulatedSurveillanceRule();
     app(SurveillanceEngine::class)->run();
     $staff = User::factory()->create(['role' => 'Local Health Unit Staff']);
 
-    Livewire::actingAs($staff)->test(SyndromicSurveillance::class)
+    Livewire::actingAs(User::factory()->create(['role' => 'Doctor']))->test(SyndromicSurveillance::class)
         ->assertViewHas('overviewCharts', fn (array $charts): bool => $charts['comparison']['expected'] === [null] && $charts['trend']['expected'] === [null])
         ->assertSee('Not enough reliable data')->assertDontSee('Review alert')->assertDontSee('Check for case increases');
 });
@@ -699,4 +698,26 @@ it('keeps chart payloads synchronized through trend selection category filtering
         File::put($directory.'/responses.json', json_encode($responses, JSON_THROW_ON_ERROR));
         File::put($directory.'/metadata.json', json_encode(['component_id' => $component->id(), 'respiratory_category_id' => $respiratory->syndrome_category_id], JSON_THROW_ON_ERROR));
     }
+});
+
+it('renders saved history with the shared Chart.js renderer and preserves missing comparisons', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-09 10:00:00', 'UTC'));
+    simulatedSurveillanceRule();
+    app(SurveillanceEngine::class)->run();
+
+    $this->get(route('surveillance.history'))->assertOk()
+        ->assertSee('surveillanceCharts(', false)
+        ->assertSee('history-chart-', false)
+        ->assertSee('<canvas', false)
+        ->assertDontSee('<polyline', false)
+        ->assertSee('View exact chart values')
+        ->assertSee('Not enough data');
+});
+
+it('does not fabricate a history chart when no saved checks exist', function () {
+    $this->actingAs(User::factory()->create(['role' => 'Admin']));
+
+    $this->get(route('surveillance.history'))->assertOk()
+        ->assertSee('No recorded syndrome trends available.')
+        ->assertDontSee('<canvas', false);
 });

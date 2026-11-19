@@ -171,12 +171,15 @@
                                 <div><dt class="inline font-medium">Address:</dt> <dd class="inline">{{ $this->selectedPatient->address ?: 'Not available' }}</dd></div>
                                 <div><dt class="inline font-medium">Registration date:</dt> <dd class="inline">{{ $this->selectedPatient->registration_date ?: 'Not available' }}</dd></div>
                                 <div><dt class="inline font-medium">Status:</dt> <dd class="inline">{{ $this->selectedPatient->status ?: 'Not available' }}</dd></div>
+                                @can('medical-records-view')
                                 <div><dt class="inline font-medium">Vital signs recorded:</dt> <dd class="inline">{{ $this->selectedPatient->vitalSigns->count() }}</dd></div>
                                 <div><dt class="inline font-medium">Medical records:</dt> <dd class="inline">{{ $this->selectedPatient->medicalRecords->count() }}</dd></div>
+                                @endcan
                             </dl>
                         </div>
                     </div>
 
+                    @can('medical-records-view')
                     <div class="mt-6 border-t border-gray-200 pt-5">
                         <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Recent Vital Signs</h3>
                         @forelse ($this->selectedPatient->vitalSigns->sortByDesc('recorded_at')->take(3) as $vitalSign)
@@ -185,7 +188,9 @@
                             <p class="text-sm text-gray-500">No vital signs recorded.</p>
                         @endforelse
                     </div>
+                    @endcan
 
+                    @can('medical-records-view')
                     <div class="mt-6 border-t border-gray-200 pt-5">
                         <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Medical Records</h3>
                         @forelse ($this->selectedPatient->medicalRecords->sortByDesc('consultation_date')->take(3) as $medicalRecord)
@@ -194,6 +199,7 @@
                             <p class="text-sm text-gray-500">No medical records found.</p>
                         @endforelse
                     </div>
+                    @endcan
                 </div>
             </div>
         </div>

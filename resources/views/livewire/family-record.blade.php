@@ -51,8 +51,10 @@
                             <td class="px-3 py-4">{{ $member->current_category ?? 'Not recorded' }}</td>
                             <td class="px-3 py-3">
                                 <div class="flex items-center gap-2 whitespace-nowrap">
+                                    @can('medical-records-view')
                                     <button type="button" wire:click="selectMember({{ $member->patient_id }})" wire:loading.attr="disabled" aria-label="View medical summary" aria-pressed="{{ $selectedMemberId === $member->patient_id ? 'true' : 'false' }}" class="patient-button bg-brand-blue px-3 py-2 text-xs">Summary</button>
                                     <a href="{{ route('families.members.show', ['familyHouseholdId' => $household->id, 'record' => $member->patient_id]) }}" wire:navigate aria-label="View Patient Record" class="patient-button px-3 py-2 text-xs">Open record</a>
+                                    @endcan
                                     @can('queue-register')<a href="{{ route('patients.edit', $member) }}" wire:navigate aria-label="Edit patient information" class="rounded px-1 py-2 text-xs font-medium hover:text-pink-700 focus-visible:outline-pink-500">Edit</a>@endcan
                                 </div>
                             </td>

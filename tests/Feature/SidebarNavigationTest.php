@@ -36,13 +36,21 @@ it('uses the shared sidebar on authenticated application pages with one active l
 it('retains role based navigation and uses the same links for desktop and mobile', function (string $role, bool $canConsult) {
     $user = User::factory()->create(['role' => $role]);
     $response = $this->actingAs($user)->get(route('dashboard'))->assertOk()
-        ->assertSee('aria-label="Dashboard"', false)
-        ->assertSee('aria-label="Queue Management"', false)
-        ->assertSee('aria-label="Patient Record"', false)
-        ->assertSee('aria-label="Patient Management"', false)
-        ->assertSee('aria-label="Medical"', false)
-        ->assertSee('aria-label="Medical Records"', false)
-        ->assertSee('wire:navigate', false);
+        ->assertSee('aria-label="Dashboard"', false)->assertSee('wire:navigate', false);
+    foreach (['Queue Management', 'Patient Record', 'Patient Management'] as $label) {
+        if ($role === 'Doctor') {
+            $response->assertDontSee('aria-label="'.$label.'"', false);
+        } else {
+            $response->assertSee('aria-label="'.$label.'"', false);
+        }
+    }
+    foreach (['Medical', 'Medical Records'] as $label) {
+        if ($canConsult) {
+            $response->assertSee('aria-label="'.$label.'"', false);
+        } else {
+            $response->assertDontSee('aria-label="'.$label.'"', false);
+        }
+    }
     if ($canConsult) {
         $response->assertSee('aria-label="Doctor&#039;s Consultation"', false);
     } else {
@@ -108,7 +116,7 @@ it('expands the active group and keeps standalone routes outside the dropdowns',
     'diagnoses' => ['diagnoses.index', 'medical'],
     'dashboard' => ['dashboard', null],
     'queue' => ['queues.index', null],
-    'vital signs' => ['patient.vital-signs-form', 'medical'],
+    'vital signs' => ['patient.vital-signs-form', 'patient-management'],
     'users' => ['users-roles.index', null],
 ]);
 
@@ -128,7 +136,7 @@ it('retains the requested child order and existing standalone navigation positio
     preg_match('/<nav[^>]*aria-label="Main navigation".*?<\/nav>/s', $response->getContent(), $navigation);
     $previousPosition = -1;
     foreach (['Dashboard', 'Patient Management', 'Patient Record', 'Patient Registration',
-        'Medical', 'Vital Signs', 'Medical Records', 'Doctor&#039;s Consultation', 'Follow-ups', 'Diagnosis Management', 'Queue Management', 'Users &amp; Roles'] as $label) {
+        'Vital Signs', 'Medical', 'Medical Records', 'Doctor&#039;s Consultation', 'Follow-ups', 'Diagnosis Management', 'Queue Management', 'Users &amp; Roles'] as $label) {
         $position = strpos($navigation[0], 'aria-label="'.$label.'"');
         expect($position)->not->toBeFalse()->toBeGreaterThan($previousPosition);
         $previousPosition = $position;
@@ -137,7 +145,7 @@ it('retains the requested child order and existing standalone navigation positio
 
 it('hides the medical group when all medical navigation abilities are denied', function () {
     $this->actingAs(User::factory()->create(['role' => 'Admin']));
-    foreach (['queue-register', 'queue-view', 'queue-consult', 'follow-ups-manage', 'diagnoses-manage'] as $ability) {
+    foreach (['medical-records-view', 'queue-consult', 'follow-ups-manage', 'diagnoses-manage'] as $ability) {
         Gate::define($ability, fn (User $user): bool => false);
     }
     $this->get(route('dashboard'))->assertOk()->assertDontSee('data-sidebar-group="medical"', false)
@@ -177,7 +185,7 @@ it('highlights only vital signs when recording a queue assessment', function () 
         'queue_id' => $queue->queue_id,
         'patient_id' => $queue->patient_id,
     ]))->assertOk()->assertSee('Vital signs assessment')
-        ->assertSee('data-sidebar-group="medical" data-active="true"', false);
+        ->assertSee('data-sidebar-group="patient-management" data-active="true"', false);
 
     preg_match('/<aside[^>]*id="app-sidebar".*?<\/aside>/s', $response->getContent(), $sidebar);
     preg_match('/<a[^>]*aria-label="Vital Signs"[^>]*>/', $sidebar[0], $activeLink);

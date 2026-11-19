@@ -23,7 +23,7 @@ beforeEach(function () {
     Http::preventStrayRequests();
     config(['textbee.enabled' => false, 'textbee.api_key' => 'test-placeholder', 'textbee.device_id' => 'test-device']);
     Queue::fake();
-    $this->actingAs(User::factory()->create(['role' => 'Local Health Unit Staff']));
+    $this->actingAs(User::factory()->create(['role' => 'Doctor']));
     $this->patient = PatientInformation::factory()->create();
     $this->data = [
         'patient_id' => $this->patient->patient_id, 'medical_record_id' => null,
@@ -270,7 +270,7 @@ it('lets active clinical roles use the page and blocks inactive accounts', funct
     $this->get(route('follow-ups.index'))->assertOk()->assertSee('Follow-up schedule')->assertSee('No follow-ups match');
     auth()->user()->forceFill(['is_active' => false])->save();
     $this->get(route('follow-ups.index'))->assertForbidden();
-})->with(['Admin', 'Doctor', 'Local Health Unit Staff']);
+})->with(['Admin', 'Doctor']);
 
 it('filters by patient status and Manila calendar dates', function () {
     $appointment = app(FollowUpWorkflow::class)->save([...$this->data, 'time' => '00:30']);

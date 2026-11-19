@@ -31,7 +31,7 @@ class MedicalRecordsTable extends Component
 
     public function mount(?int $patient_id = null): void
     {
-        Gate::authorize('queue-view');
+        Gate::authorize('medical-records-view');
         if ($patient_id !== null) {
             PatientInformation::findOrFail($patient_id);
             $this->search = (string) $patient_id;
@@ -49,7 +49,7 @@ class MedicalRecordsTable extends Component
 
     public function clearFilters(): void
     {
-        Gate::authorize('queue-view');
+        Gate::authorize('medical-records-view');
         $this->reset('search', 'fromDate', 'toDate');
         $this->resetPage();
         $this->resetValidation();
@@ -59,7 +59,7 @@ class MedicalRecordsTable extends Component
     #[Computed]
     public function patients(): LengthAwarePaginator
     {
-        Gate::authorize('queue-view');
+        Gate::authorize('medical-records-view');
         $toDateRules = ['nullable', 'date_format:Y-m-d'];
         if ($this->fromDate !== '') {
             $toDateRules[] = 'after_or_equal:fromDate';
@@ -128,7 +128,7 @@ class MedicalRecordsTable extends Component
 
     public function render(): View
     {
-        Gate::authorize('queue-view');
+        Gate::authorize('medical-records-view');
 
         return view('livewire.medical-records-table', ['patients' => $this->patients]);
     }

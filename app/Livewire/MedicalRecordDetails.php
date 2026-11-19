@@ -30,13 +30,13 @@ class MedicalRecordDetails extends Component
 
     public function mount(PatientInformation $record, ?int $familyHouseholdId = null, bool $embedded = false): void
     {
-        Gate::authorize('queue-view');
+        Gate::authorize('medical-records-view');
 
         $this->patientId = $record->patient_id;
         $this->familyHouseholdId = $familyHouseholdId;
         $this->embedded = $embedded;
         $patient = $this->contextPatient();
-        $this->backUrl = $familyHouseholdId === null ? route('medical-records.index', request()->only(['search', 'fromDate', 'toDate', 'page'])) : route('families.show', $familyHouseholdId);
+        $this->backUrl = $familyHouseholdId === null || Gate::denies('queue-view') ? route('medical-records.index', request()->only(['search', 'fromDate', 'toDate', 'page'])) : route('families.show', $familyHouseholdId);
         if ($familyHouseholdId !== null) {
             app(PatientRegistration::class)->audit($patient, 'family-member-record-accessed', ['household_id' => $familyHouseholdId], $familyHouseholdId);
         }
@@ -44,7 +44,7 @@ class MedicalRecordDetails extends Component
 
     public function render(): View
     {
-        Gate::authorize('queue-view');
+        Gate::authorize('medical-records-view');
 
         $patient = $this->contextPatientQuery()->with([
             'household',

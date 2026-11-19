@@ -32,28 +32,26 @@
     @endif
     @if ($section === 'history')
     <section class="patient-card space-y-4">
-        <h2 class="text-lg font-semibold">Current and expected case trends</h2><p class="text-sm text-muted">Blue: current cases · Dashed gray: expected cases · Red: needs review · Amber: watch. Each point is a saved detection result. Rolling windows overlap; counts should not be added together.</p>
+        <h2 class="text-lg font-semibold">Current and expected case trends</h2><p class="text-sm text-muted">Blue: current cases · Dashed gray: expected cases · Pink: alert · Amber: watch or below-minimum signal. Each point is a saved detection result. Rolling windows overlap; counts should not be added together.</p>
         <div class="grid gap-5 lg:grid-cols-2">
             @forelse ($trends as $name => $points)
                 @php
                     $series = $points->values();
-                    $maximum = max(1, $series->max('observed'), $series->max('expected') ?? 0);
-                    $observedPoints = $series->map(fn ($point, $index) => (20 + $index * 460 / max(1, $series->count() - 1)).','. (150 - 130 * $point->observed / $maximum))->join(' ');
+                    $historyChart = [
+                        'trend' => [
+                            'labels' => $series->map(fn ($point) => $point->run->window_end->setTimezone('Asia/Manila')->format('d M Y H:i'))->all(),
+                            'observed' => $series->pluck('observed')->all(),
+                            'expected' => $series->pluck('expected')->all(),
+                            'outcomes' => $series->pluck('outcome')->all(),
+                        ],
+                        'comparison' => ['labels' => []],
+                    ];
                 @endphp
-                <figure class="min-w-0 rounded-lg border border-line p-4"><figcaption class="text-sm font-semibold">{{ $name }}</figcaption>
-                    <svg viewBox="0 0 500 180" role="img" aria-label="{{ $name }} current versus expected cases" class="mt-3 w-full"><path d="M20 20v130h460" fill="none" stroke="#d1d5db"/><text x="18" y="15" font-size="10">{{ ceil($maximum) }} cases</text><text x="8" y="153" font-size="10">0</text><polyline points="{{ $observedPoints }}" fill="none" stroke="#2563eb" stroke-width="2"/>
-                        @foreach ($series as $index => $point)
-                            @php
-                                $x = 20 + $index * 460 / max(1, $series->count() - 1);
-                            @endphp
-                            <circle cx="{{ $x }}" cy="{{ 150 - 130 * $point->observed / $maximum }}" r="4" fill="{{ match ($point->outcome) { 'Alert' => '#dc2626', 'Watch', 'Signal' => '#d97706', default => '#2563eb' } }}"><title>{{ $point->run->window_end->setTimezone('Asia/Manila')->format('d M H:i') }}: {{ $point->observed }} current cases; {{ $point->outcome }}</title></circle>
-                            @if ($point->expected !== null)
-                                <circle cx="{{ $x }}" cy="{{ 150 - 130 * $point->expected / $maximum }}" r="3" fill="#6b7280"><title>{{ $point->run->window_end->setTimezone('Asia/Manila')->format('d M H:i') }}: {{ number_format($point->expected, 2) }} expected cases</title></circle>
-                                @if ($index > 0 && $series[$index - 1]->expected !== null)<line x1="{{ 20 + ($index - 1) * 460 / max(1, $series->count() - 1) }}" y1="{{ 150 - 130 * $series[$index - 1]->expected / $maximum }}" x2="{{ $x }}" y2="{{ 150 - 130 * $point->expected / $maximum }}" stroke="#6b7280" stroke-width="2" stroke-dasharray="5 4"/>@endif
-                            @endif
-                        @endforeach
-                        <text x="20" y="170" font-size="10">{{ $series->first()->run->window_end->setTimezone('Asia/Manila')->format('d M H:i') }}</text><text x="480" y="170" text-anchor="end" font-size="10">{{ $series->last()->run->window_end->setTimezone('Asia/Manila')->format('d M H:i') }}</text>
-                    </svg>
+                <figure class="min-w-0 rounded-lg border border-line p-4" wire:key="history-chart-{{ hash('sha256', $name.json_encode($historyChart)) }}" x-data="surveillanceCharts(@js($historyChart))">
+                    <figcaption class="text-sm font-semibold">{{ $name }}</figcaption>
+                    <div class="relative mt-3 h-72 w-full sm:h-80" wire:ignore><canvas x-ref="trend" role="img" aria-label="{{ $name }} current versus expected cases">Exact values appear in the chart data table below.</canvas></div>
+                    <p x-show="loading" role="status" class="text-xs text-muted">Loading chart...</p>
+                    <p x-show="failed" x-cloak role="alert" class="mt-3 text-sm text-amber-800">Chart could not be loaded. Exact saved values are available below.</p>
                     <details wire:ignore.self class="text-xs"><summary class="cursor-pointer">View exact chart values</summary><div class="overflow-x-auto"><table class="mt-2 w-full text-left"><thead><tr><th class="p-2">Window end</th><th class="p-2">Current cases</th><th class="p-2">Expected cases</th><th class="p-2">Result</th></tr></thead><tbody>@foreach ($series as $point)<tr><td class="p-2">{{ $point->run->window_end->setTimezone('Asia/Manila')->format('d M Y H:i') }}</td><td class="p-2">{{ $point->observed }}</td><td class="p-2">{{ $point->expected !== null ? number_format($point->expected, 2) : 'Not enough data' }}</td><td class="p-2"><x-surveillance-outcome :outcome="$point->outcome" :threshold-reached="$point->calculation['threshold_reached'] ?? false" /></td></tr>@endforeach</tbody></table></div></details>
                 </figure>
             @empty<p class="text-sm text-muted">No recorded syndrome trends available.</p>@endforelse

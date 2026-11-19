@@ -37,7 +37,7 @@
     </section>
 
     @if ($latest && $results->isNotEmpty())
-        <div class="space-y-5" wire:key="overview-charts-{{ hash('sha256', json_encode($overviewCharts)) }}" x-data="surveillanceOverviewCharts(@js($overviewCharts))">
+        <div class="space-y-5" wire:key="overview-charts-{{ hash('sha256', json_encode($overviewCharts)) }}" x-data="surveillanceCharts(@js($overviewCharts))">
             <p x-show="failed" x-cloak role="alert" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Charts could not be loaded. Exact saved values are available in the tables below.</p>
             <div class="grid items-start gap-5 xl:grid-cols-3">
                 <section id="overview-trend-chart" class="patient-card min-w-0 scroll-mt-6 xl:col-span-2" aria-label="Syndrome trend chart">

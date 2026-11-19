@@ -25,7 +25,7 @@
                 <div class="mt-4 flex flex-wrap gap-2"><button type="button" x-bind:disabled="!cardReady" x-on:click="$refs.card.contentWindow.focus(); $refs.card.contentWindow.print()" class="patient-button bg-brand-blue text-xs disabled:opacity-50">Print healthcare ID</button><a href="{{ route('patients.card.download', $registered) }}" class="patient-button text-xs">Download PDF</a><a href="{{ route('patients.card.show', $registered) }}" target="_blank" rel="noopener noreferrer" class="patient-button text-xs">Open printable ID</a></div>
             </section>
             <footer class="mt-5 flex flex-wrap gap-2">
-                <a href="{{ route('medical-records.show', ['record' => $registered->patient_id]) }}" wire:navigate class="patient-button border-transparent bg-brand-pink text-xs">Open patient record</a>
+                <a href="{{ auth()->user()->can('medical-records-view') ? route('medical-records.show', ['record' => $registered->patient_id]) : route('patients.edit', $registered) }}" wire:navigate class="patient-button border-transparent bg-brand-pink text-xs">Open patient record</a>
                 @if ($registered->household_id !== null)<a href="{{ route('families.show', $registered->household_id) }}" wire:navigate class="patient-button bg-white text-xs">Open Family Record</a>@endif
                 <button type="button" wire:click="resetForm" wire:loading.attr="disabled" class="patient-button bg-white text-xs">Register another patient</button>
                 <a href="{{ route('queues.index') }}" wire:navigate class="patient-button bg-white text-xs">View queue</a>

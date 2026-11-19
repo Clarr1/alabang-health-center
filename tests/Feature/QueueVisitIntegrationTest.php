@@ -175,9 +175,8 @@ it('selects a queue patient and sends the same visit to the doctors queue after 
         ->and($queue->vitalSign->bmi)->toEqual(21.5);
     $component->call('saveVitalSigns')->assertHasErrors('patient_id');
     expect(VitalSign::count())->toBe(1)->and($component->get('vitalSignsQueue'))->toHaveCount(0);
-    Livewire::actingAs(User::factory()->create(['role' => 'Doctor']))->test(QueueManagement::class)
-        ->set('status', 'Ready for Consultation')->assertSee($queue->patient->first_name)
-        ->assertSee('Start Consultation');
+    Livewire::actingAs(User::factory()->create(['role' => 'Doctor']))->test(MedicalRecordsForm::class)
+        ->assertSee($queue->patient->first_name)->assertSee('Start Consultation');
 })->with(['Waiting', 'Called', 'Vital Signs']);
 
 it('rejects stale ineligible and previous day queue selections without changing the form', function () {

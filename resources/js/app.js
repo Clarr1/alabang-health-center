@@ -1,7 +1,7 @@
 import { Livewire, Alpine } from '../../vendor/livewire/livewire/dist/livewire.esm';
 import surveillanceOverviewCharts from './surveillance-overview';
 
-Alpine.data('surveillanceOverviewCharts', surveillanceOverviewCharts);
+Alpine.data('surveillanceCharts', surveillanceOverviewCharts);
 
 Alpine.data('sidebarNavigation', () => ({
     collapsed: false,

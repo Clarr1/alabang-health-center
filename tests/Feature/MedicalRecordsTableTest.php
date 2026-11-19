@@ -158,7 +158,7 @@ it('authorizes direct details access for existing browsing roles', function (str
     $user = User::factory()->create(['role' => $role]);
     $record = savedRecordForBrowsing($user);
     $this->actingAs($user)->get(route('medical-records.show', ['record' => $record->patient_id]))->assertOk();
-})->with(['Admin', 'Doctor', 'Local Health Unit Staff']);
+})->with(['Admin', 'Doctor']);
 
 it('rejects unauthorized details access and returns not found for missing records', function () {
     $doctor = User::factory()->create(['role' => 'Doctor']);
@@ -197,7 +197,7 @@ it('separates browsing and consultation routes with correct authorization and ac
     expect(substr_count($matches[1], 'aria-current="page"'))->toBe(1);
     preg_match('/<a[^>]*href="[^"]*doctors-consultation[^"]*"[^>]*>/', $matches[1], $activeLink);
     expect($activeLink[0])->toContain('aria-current="page"');
-})->with(['Admin', 'Doctor', 'Local Health Unit Staff']);
+})->with(['Admin', 'Doctor']);
 
 it('requires login and authorized access to browsing and record details', function () {
     $this->get(route('medical-records.index'))->assertRedirect(route('login'));

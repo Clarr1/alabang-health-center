@@ -62,6 +62,7 @@ it('refreshes an independent display when staff change queues and removes termin
     VitalSign::create(['queue_id' => $consultation->queue_id, 'patient_id' => $consultation->patient_id, 'recorded_by' => $doctor->user_id]);
     $this->actingAs($doctor);
     app(QueueWorkflow::class)->transition($consultation->queue_id, 'Ready for Consultation', 'In Consultation');
+    Livewire::actingAs($staff);
     $display->call('$refresh')->assertViewHas('stages', fn (array $stages): bool => array_column($stages['consultation']['serving'], 'number') === [90]
         && $stages['consultation']['waiting'] === []);
 });
@@ -99,7 +100,7 @@ it('requires authorized login and provides a separate-tab display link', functio
     $this->actingAs($user)->get(route('queues.display'))->assertForbidden();
     Livewire::actingAs($user)->test(QueueDisplay::class)->assertForbidden();
 
-    foreach (['Admin', 'Local Health Unit Staff', 'Doctor'] as $role) {
+    foreach (['Admin', 'Local Health Unit Staff'] as $role) {
         $staff = User::factory()->create(['role' => $role]);
         $this->actingAs($staff)->get(route('queues.display'))->assertOk();
         Livewire::actingAs($staff)->test(QueueManagement::class)

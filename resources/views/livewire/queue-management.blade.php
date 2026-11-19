@@ -164,7 +164,9 @@
                                         @endforeach
                                         @if (in_array($queue->status, \App\Models\Queue::TERMINAL_STATUSES, true))
                                             @if ($queue->medicalRecord)
+                                                @can('medical-records-view')
                                                 <a href="{{ route('medical-records.show', ['record' => $queue->patient_id]) }}" wire:navigate class="patient-button px-3 py-2 text-xs">View visit</a>
+                                                @endcan
                                             @endif
                                             <span class="text-[11px] text-muted">Visit closed</span>
                                         @endif

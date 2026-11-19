@@ -56,16 +56,11 @@ it('shows staff actions and rejects manually submitted doctor actions', function
     expect($queue->fresh()->status)->toBe('Called');
 });
 
-it('allows doctors to start consultation but not enqueue patients', function () {
+it('denies doctors queue management while retaining the consultation workflow', function () {
     $doctor = User::factory()->create(['role' => 'Doctor']);
-    $queue = Queue::factory()->create(['status' => 'Ready for Consultation']);
-    VitalSign::create(['queue_id' => $queue->queue_id, 'patient_id' => $queue->patient_id, 'recorded_by' => $doctor->user_id]);
-    Livewire::actingAs($doctor)->test(QueueManagement::class)
-        ->assertSee('Start Consultation')->assertDontSee('Add an existing patient')
-        ->call('changeStatus', $queue->queue_id, 'Ready for Consultation', 'In Consultation')
-        ->assertRedirect(route('queues.consultation', ['patient_id' => $queue->patient_id, 'queue_id' => $queue->queue_id]));
-    Livewire::actingAs($doctor)->test(QueueManagement::class)
-        ->call('addPatient')->assertForbidden();
+    Livewire::actingAs($doctor)->test(QueueManagement::class)->assertForbidden();
+    $this->get(route('queues.index'))->assertForbidden();
+    $this->get(route('doctors-consultation.index'))->assertOk();
 });
 
 it('updates dashboard statistics on subsequent Livewire requests', function () {
@@ -199,7 +194,7 @@ it('shows live assessment and consultation summaries for the Manila day', functi
         ->and($dashboard->viewData('statistics')['Completed Patients'])->toBe(2);
 });
 
-it('links a completed queue visit to its existing medical record', function () {
+it('hides completed visit medical links from staff', function () {
     $staff = User::factory()->create();
     PatientInformation::factory()->create();
     $queue = Queue::factory()->create(['status' => 'Completed']);
@@ -214,7 +209,7 @@ it('links a completed queue visit to its existing medical record', function () {
     ]);
 
     Livewire::actingAs($staff)->test(QueueManagement::class)
-        ->assertSee('View visit')
-        ->assertSee('href="'.route('medical-records.show', ['record' => $queue->patient_id]).'"', false)
+        ->assertDontSee('View visit')
+        ->assertDontSee('href="'.route('medical-records.show', ['record' => $queue->patient_id]).'"', false)
         ->assertSee('Visit closed');
 });

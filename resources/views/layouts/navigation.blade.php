@@ -37,8 +37,8 @@
         <x-sidebar-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" label="Dashboard">
             <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
         </x-sidebar-link>
-        @if (auth()->user()?->is_active && auth()->user()?->hasAuthorizedRole())
-            <x-sidebar-group id="patient-management" label="Patient Management" :active="request()->routeIs('patients.*', 'families.*', 'patient.information-form')">
+        @can('patient-records-view')
+            <x-sidebar-group id="patient-management" label="Patient Management" :active="request()->routeIs('patients.*', 'families.*', 'patient.information-form', 'patient.vital-signs-form', 'queues.vital-signs')">
                 <x-slot:icon><circle cx="9" cy="8" r="3" /><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M17 15a5 5 0 0 1 4 4v2" /></x-slot:icon>
                 <x-sidebar-link :href="route('patients.index')" :active="request()->routeIs('patients.*', 'families.*')" label="Patient Record" :nested="true">
                     <path d="M4 4h16v16H4zM8 8h8M8 12h8M8 16h4" />
@@ -48,17 +48,17 @@
                         <circle cx="9" cy="7" r="3" /><path d="M3 21v-3a6 6 0 0 1 12 0v3M19 10v8m-4-4h8" />
                     </x-sidebar-link>
                 @endcan
-            </x-sidebar-group>
-        @endif
-        @canany(['queue-register', 'queue-view', 'queue-consult', 'follow-ups-manage', 'diagnoses-manage'])
-            <x-sidebar-group id="medical" label="Medical" :active="request()->routeIs('patient.vital-signs-form', 'queues.vital-signs', 'medical-records.*', 'doctors-consultation.*', 'queues.consultation', 'follow-ups.*', 'diagnoses.*')">
-                <x-slot:icon><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z" /></x-slot:icon>
                 @can('queue-register')
                     <x-sidebar-link :href="route('patient.vital-signs-form')" :active="request()->routeIs('patient.vital-signs-form', 'queues.vital-signs')" label="Vital Signs" :nested="true">
                         <path d="M3 12h4l3-8 4 16 3-8h4" />
                     </x-sidebar-link>
                 @endcan
-                @can('queue-view')
+            </x-sidebar-group>
+        @endcan
+        @canany(['medical-records-view', 'queue-consult', 'follow-ups-manage', 'diagnoses-manage'])
+            <x-sidebar-group id="medical" label="Medical" :active="request()->routeIs('medical-records.*', 'doctors-consultation.*', 'queues.consultation', 'follow-ups.*', 'diagnoses.*')">
+                <x-slot:icon><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z" /></x-slot:icon>
+                @can('medical-records-view')
                     <x-sidebar-link :href="route('medical-records.index')" :active="request()->routeIs('medical-records.*')" label="Medical Records" :nested="true">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5" />
                     </x-sidebar-link>
