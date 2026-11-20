@@ -2,86 +2,46 @@
 
 namespace Database\Seeders;
 
+use App\Models\PatientInformation;
+use App\Models\User;
+use App\Services\PatientCategories;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class PatientInformationSeeder extends Seeder
 {
+    public const ADDRESS_PREFIX = 'FICTIONAL DEMO HOME ';
+
     public function run(): void
     {
-        $patients = [
-            [
-                'first_name' => 'Juan',
-                'middle_name' => 'Santos',
-                'last_name' => 'Dela Cruz',
-                'birthdate' => '1998-05-15',
-                'sex' => 'Male',
-                'address' => 'Alabang, Muntinlupa City',
-                'contact_number' => '09171234567',
-                'emergency_contact' => '09181234567',
-                'registration_date' => '2026-09-10',
-                'status' => 'Active',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'first_name' => 'Maria',
-                'middle_name' => 'Garcia',
-                'last_name' => 'Santos',
-                'birthdate' => '2001-08-20',
-                'sex' => 'Female',
-                'address' => 'Bayanan, Muntinlupa City',
-                'contact_number' => '09192345678',
-                'emergency_contact' => '09201234567',
-                'registration_date' => '2026-09-10',
-                'status' => 'Active',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'first_name' => 'Pedro',
-                'middle_name' => null,
-                'last_name' => 'Reyes',
-                'birthdate' => '1985-03-10',
-                'sex' => 'Male',
-                'address' => 'Putatan, Muntinlupa City',
-                'contact_number' => '09213456789',
-                'emergency_contact' => '09224567890',
-                'registration_date' => '2026-09-10',
-                'status' => 'Active',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'first_name' => 'Ana',
-                'middle_name' => 'Lopez',
-                'last_name' => 'Garcia',
-                'birthdate' => '1995-11-25',
-                'sex' => 'Female',
-                'address' => 'Tunasan, Muntinlupa City',
-                'contact_number' => '09235678901',
-                'emergency_contact' => '09246789012',
-                'registration_date' => '2026-09-10',
-                'status' => 'Active',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'first_name' => 'Carlos',
-                'middle_name' => 'Mendoza',
-                'last_name' => 'Cruz',
-                'birthdate' => '1978-01-30',
-                'sex' => 'Male',
-                'address' => 'Sucat, Muntinlupa City',
-                'contact_number' => '09257890123',
-                'emergency_contact' => '09268901234',
-                'registration_date' => '2026-09-10',
-                'status' => 'Active',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
+        $names = [
+            ['Juan', 'Santos', 'Dela Cruz', '1998-05-15', 'Male'],
+            ['Maria', 'Garcia', 'Santos', '2001-08-20', 'Female'],
+            ['Pedro', 'Ramos', 'Reyes', '1985-03-10', 'Male'],
+            ['Ana', 'Lopez', 'Garcia', '1995-11-25', 'Female'],
+            ['Carlos', 'Mendoza', 'Cruz', '1978-01-30', 'Male'],
+            ['Elena', 'Reyes', 'Bautista', '1960-06-12', 'Female'],
+            ['Miguel', 'Torres', 'Navarro', '2014-02-18', 'Male'],
+            ['Sofia', 'Castillo', 'Ramos', '2018-09-04', 'Female'],
+            ['Andres', 'Flores', 'Villanueva', '1990-12-08', 'Male'],
+            ['Isabel', 'Aquino', 'Domingo', '2005-04-22', 'Female'],
         ];
+        $staff = User::where('email', 'staff@example.test')->sole();
 
-        DB::table('patient_information')->insert($patients);
+        foreach ($names as $index => [$firstName, $middleName, $lastName, $birthdate, $sex]) {
+            $patient = PatientInformation::firstOrCreate([
+                'address' => self::ADDRESS_PREFIX.($index + 1).', Barangay Alabang, Muntinlupa City',
+                'first_name' => $firstName, 'last_name' => $lastName, 'birthdate' => $birthdate,
+            ], [
+                'middle_name' => $middleName, 'sex' => $sex, 'surveillance_residence' => 'Alabang',
+                'contact_number' => null, 'emergency_contact' => null, 'sms_consent' => false,
+                'registration_date' => now('Asia/Manila')->subDays(180)->toDateString(), 'status' => 'Active',
+                'patient_category' => app(PatientCategories::class)->suggest($birthdate),
+            ]);
+            $patient->registrationProfile()->firstOrCreate([], [
+                'prepared_by' => $staff->getKey(),
+                'completed_at' => $patient->registration_date,
+                'pertinent_information' => 'FICTIONAL development record. Never use for patient care.',
+            ]);
+        }
     }
 }

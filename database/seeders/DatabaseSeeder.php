@@ -2,29 +2,36 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
+        if (! app()->environment(['local', 'testing'])) {
+            throw new RuntimeException('Development seed data is permitted only in local or testing environments.');
+        }
 
-        // User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
-        $this->call([
-            UserSeeder::class,
-            PatientInformationSeeder::class,
-            VitalSignsSeeder::class,
-        ]);
+        $previousSms = config('textbee.enabled');
+        $previousMailer = config('mail.default');
+        config(['textbee.enabled' => false, 'mail.default' => 'array']);
+
+        try {
+            DB::transaction(function (): void {
+                $this->call([
+                    UserSeeder::class,
+                    SymptomSeeder::class,
+                    DiagnosisSeeder::class,
+                    PatientInformationSeeder::class,
+                    VitalSignsSeeder::class,
+                    MedicalRecordSeeder::class,
+                    SyndromicEarlyWarningSeeder::class,
+                ]);
+            });
+        } finally {
+            config(['textbee.enabled' => $previousSms, 'mail.default' => $previousMailer]);
+        }
     }
 }
