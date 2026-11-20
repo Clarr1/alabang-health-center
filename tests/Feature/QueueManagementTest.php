@@ -2,6 +2,7 @@
 
 use App\Livewire\QueueDashboard;
 use App\Livewire\QueueManagement;
+use App\Models\Household;
 use App\Models\PatientInformation;
 use App\Models\Queue;
 use App\Models\User;
@@ -21,6 +22,59 @@ it('searches existing patients by name and ID and prevents duplicate adds', func
         ->assertSet('selectedPatientId', null)
         ->call('selectPatient', $patient->patient_id)->call('addPatient')->assertHasErrors('queue');
     expect(Queue::count())->toBe(1)->and(PatientInformation::count())->toBe(1);
+});
+
+it('searches by exact and partial family ID and assigns each family member individually', function () {
+    $staff = User::factory()->create();
+    $family = Household::factory()->create(['family_number' => 'FN-1001', 'label' => 'Santos Family']);
+    $first = PatientInformation::factory()->create([
+        'first_name' => 'Maria',
+        'last_name' => 'Santos',
+        'household_id' => $family->id,
+        'household_relationship' => 'Mother',
+    ]);
+    $second = PatientInformation::factory()->create([
+        'first_name' => 'Jose',
+        'last_name' => 'Santos',
+        'household_id' => $family->id,
+        'household_relationship' => 'Father',
+    ]);
+    $other = PatientInformation::factory()->create(['first_name' => 'Ana', 'last_name' => 'Garcia']);
+
+    $component = Livewire::actingAs($staff)->test(QueueManagement::class)
+        ->set('patientSearch', '100')
+        ->assertSee('Family search results')
+        ->assertSee('FN-1001')
+        ->assertSee('Maria')
+        ->assertSee('Jose')
+        ->assertDontSee('Garcia')
+        ->set('patientSearch', 'FN-1001')
+        ->assertSee('Santos Family');
+
+    $component->call('selectPatient', $first->patient_id)
+        ->call('addPatient')
+        ->assertHasNoErrors()
+        ->assertSee('Assigned queue number: 001');
+
+    $component->call('selectPatient', $second->patient_id)
+        ->call('addPatient')
+        ->assertHasNoErrors()
+        ->assertSee('Assigned queue number: 002');
+
+    $component->call('selectPatient', $first->patient_id)
+        ->call('addPatient')
+        ->assertHasErrors('queue');
+
+    expect(Queue::count())->toBe(2)
+        ->and(Queue::orderBy('queue_number')->pluck('patient_id')->all())->toBe([$first->patient_id, $second->patient_id])
+        ->and($other->household_id)->toBeNull();
+});
+
+it('shows a clear empty state for an unknown family ID', function () {
+    Livewire::actingAs(User::factory()->create())
+        ->test(QueueManagement::class)
+        ->set('patientSearch', 'FN-NOT-FOUND')
+        ->assertSee('No matching patients or families found');
 });
 
 it('filters by patient name ID queue number status and date and paginates', function () {

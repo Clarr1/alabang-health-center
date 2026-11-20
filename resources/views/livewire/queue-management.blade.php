@@ -32,19 +32,60 @@
             <form wire:submit="addPatient" class="space-y-4">
                 <div>
                     <label for="queue-patient-search" class="patient-label">Add an existing patient</label>
-                    <input id="queue-patient-search" x-on:keydown.enter.prevent type="search" wire:model.live.debounce.300ms="patientSearch" placeholder="Patient name or ID" class="patient-input w-full">
+                    <input id="queue-patient-search" x-on:keydown.enter.prevent type="search" wire:model.live.debounce.300ms="patientSearch" placeholder="Patient name, Patient ID or Family ID" class="patient-input w-full">
                     <a href="{{ route('patient.information-form') }}" wire:navigate class="mt-3 inline-block text-sm font-semibold text-ink underline decoration-brand-pink underline-offset-4">Register a new patient</a>
                     @if (trim($patientSearch) !== '')
+                        @if ($this->familyResults->isNotEmpty())
+                            <div class="mt-4">
+                                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Family search results</p>
+                                @foreach ($this->familyResults as $family)
+                                    <div wire:key="queue-family-{{ $family->id }}" class="mb-3 overflow-x-auto rounded-md border border-line">
+                                        <div class="border-b border-line bg-blush px-3 py-2">
+                                            <p class="font-semibold text-ink">{{ $family->label }}</p>
+                                            <p class="text-xs text-muted">Family ID: {{ $family->family_number }} · {{ $family->members->count() }} registered {{ $family->members->count() === 1 ? 'member' : 'members' }}</p>
+                                        </div>
+                                        <table class="w-full min-w-[650px] text-left text-sm">
+                                            <thead class="text-xs text-muted">
+                                                <tr>
+                                                    <th scope="col" class="px-3 py-2">Family member</th>
+                                                    <th scope="col" class="px-3 py-2">Patient ID</th>
+                                                    <th scope="col" class="px-3 py-2">Details</th>
+                                                    <th scope="col" class="px-3 py-2 text-right">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-line">
+                                                @foreach ($family->members as $member)
+                                                    <tr wire:key="queue-family-member-{{ $member->patient_id }}">
+                                                        <td class="px-3 py-3 font-medium">{{ $member->last_name }}, {{ $member->first_name }} {{ $member->middle_name }}</td>
+                                                        <td class="px-3 py-3">#{{ $member->patient_id }}</td>
+                                                        <td class="px-3 py-3 text-xs text-muted">{{ $member->age }} years · {{ $member->sex ?: 'Sex not recorded' }} · {{ $member->household_relationship ?: 'Relationship not recorded' }} · {{ $member->contact_number ?: 'No contact number' }}</td>
+                                                        <td class="px-3 py-3 text-right">
+                                                            <button type="button" wire:click="selectPatient({{ $member->patient_id }})" wire:loading.attr="disabled" class="patient-button bg-brand-blue text-xs">Select / Assign to Queue</button>
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        <p class="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Individual patient search results</p>
                         @forelse ($this->patientResults as $patient)
                             <div wire:key="queue-patient-{{ $patient->patient_id }}" class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
                                 <div>
                                     <p class="font-medium text-ink">{{ $patient->last_name }}, {{ $patient->first_name }} {{ $patient->middle_name }}</p>
-                                    <p class="text-sm text-muted">Patient #{{ $patient->patient_id }} · {{ $patient->age }} years · {{ $patient->sex }} · {{ $patient->contact_number ?: 'No contact number' }}</p>
+                                    <p class="text-sm text-muted">Patient #{{ $patient->patient_id }} · Family ID: {{ $patient->household?->family_number ?: 'Not assigned' }} · {{ $patient->age }} years · {{ $patient->sex }} · {{ $patient->contact_number ?: 'No contact number' }}</p>
                                 </div>
                                 <button type="button" wire:click="selectPatient({{ $patient->patient_id }})" wire:loading.attr="disabled" class="patient-button bg-brand-blue text-xs">Select Patient</button>
                             </div>
                         @empty
-                            <p class="mt-3 text-sm text-muted">No matching patients found.</p>
+                            @if ($this->familyResults->isEmpty())
+                                <p class="mt-3 text-sm text-muted">No matching patients or families found. Check the Patient ID, name, or Family ID and try again.</p>
+                            @else
+                                <p class="mt-3 text-sm text-muted">No individual patient matches found.</p>
+                            @endif
                         @endforelse
                     @endif
                 </div>

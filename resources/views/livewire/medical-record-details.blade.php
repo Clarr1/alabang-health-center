@@ -41,12 +41,6 @@
             @if ($familyHouseholdId === null && $patient->household && auth()->user()->can('queue-view'))
                 <a href="{{ route('families.show', $patient->household) }}" wire:navigate class="patient-button bg-white text-xs">View Family Record &middot; {{ $patient->household->family_number }}</a>
             @endif
-            @can('queue-consult')
-                <a href="{{ route('doctors-consultation.index') }}" wire:navigate class="patient-button border-transparent bg-brand-pink text-xs hover:bg-[#f598ba]">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                    New consultation
-                </a>
-            @endcan
         </div>
     </div>
 

@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Household;
 use App\Models\PatientInformation;
 use App\Models\Queue;
 use App\Services\QueueWorkflow;
@@ -142,9 +143,41 @@ class QueueManagement extends Component
             return collect();
         }
 
-        return PatientInformation::query()->where(function (Builder $query) use ($search): void {
+        return PatientInformation::query()->with('household:id,family_number')->where(function (Builder $query) use ($search): void {
             $this->searchPatients($query, $search);
         })->orderBy('last_name')->limit(8)->get();
+    }
+
+    #[Computed]
+    public function familyResults(): Collection
+    {
+        Gate::authorize('queue-view');
+        $search = trim($this->patientSearch);
+
+        if ($search === '') {
+            return collect();
+        }
+
+        return Household::query()
+            ->where('family_number', 'like', '%'.$search.'%')
+            ->has('members')
+            ->with(['members' => function ($query): void {
+                $query->select([
+                    'patient_id',
+                    'household_id',
+                    'first_name',
+                    'middle_name',
+                    'last_name',
+                    'birthdate',
+                    'sex',
+                    'contact_number',
+                    'household_relationship',
+                ])->orderBy('last_name')->orderBy('first_name')->orderBy('patient_id');
+            }])
+            ->orderByRaw('CASE WHEN family_number = ? THEN 0 ELSE 1 END', [$search])
+            ->orderBy('family_number')
+            ->limit(8)
+            ->get();
     }
 
     #[Computed]

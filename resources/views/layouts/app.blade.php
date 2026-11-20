@@ -35,11 +35,6 @@
                         <span class="hidden text-muted sm:inline">Patient management &amp; medical records</span>
                         <span class="font-medium sm:hidden">Alabang Health Center</span>
                     </div>
-                    <div class="flex shrink-0 items-center gap-3" aria-label="Partner agencies">
-                        <img src="{{ asset('images/barangay-alabang.png') }}" width="32" height="32" alt="Barangay Alabang" class="h-8 w-8 rounded-full object-contain">
-                        <img src="{{ asset('images/department-of-health.png') }}" width="32" height="32" alt="Department of Health" class="h-8 w-8 rounded-full object-contain">
-                        <img src="{{ asset('images/city-of-muntinlupa.png') }}" width="32" height="32" alt="City of Muntinlupa" class="h-8 w-8 rounded-full object-contain">
-                    </div>
                     <div class="flex items-center gap-4 max-sm:w-full max-sm:justify-end">
                         @can('surveillance-view')
                             @if (\Illuminate\Support\Facades\Schema::hasColumn('surveillance_alerts', 'surveillance_result_id'))

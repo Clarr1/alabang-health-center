@@ -3,6 +3,7 @@
 use App\Http\Controllers\PatientCardController;
 use App\Http\Controllers\PatientMedicalRecordPdfController;
 use App\Http\Controllers\ProfileController;
+use App\Livewire\AuditLogs;
 use App\Livewire\DetectionSettings;
 use App\Livewire\DiagnosisManagement;
 use App\Livewire\EditPatient;
@@ -35,6 +36,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/diagnoses', DiagnosisManagement::class)->middleware('can:diagnoses-manage')->name('diagnoses.index');
     Route::get('/follow-ups', FollowUps::class)->middleware('can:follow-ups-manage')->name('follow-ups.index');
     Route::get('/users-roles', UsersRoles::class)->middleware('can:manage-accounts')->name('users-roles.index');
+    Route::get('/audit-logs', AuditLogs::class)->middleware('can:audit-log-view')->name('audit-logs.index');
     Route::get('/queues', QueueManagement::class)->middleware('can:queue-view')->name('queues.index');
     Route::get('/queues/display', QueueDisplay::class)->middleware('can:queue-view')->name('queues.display');
     Route::get('/queues/{queue_id}/vital-signs/{patient_id}', VitalSignsForm::class)->middleware('can:queue-register')->name('queues.vital-signs');
